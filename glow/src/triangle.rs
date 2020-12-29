@@ -157,11 +157,9 @@ impl Pipeline {
                 // modify the buffer to add last_vertex to each of the indices
                 self.temp_indices.clear();
                 self.temp_indices.extend_from_slice(&buffers.indices);
-                dbg!(&self.temp_indices);
                 for idx in &mut self.temp_indices {
                     *idx += last_vertex as u32;
                 }
-                dbg!(&self.temp_indices);
                 gl.buffer_sub_data_u8_slice(
                     glow::ELEMENT_ARRAY_BUFFER,
                     (last_index * std::mem::size_of::<u32>()) as i32,
@@ -175,7 +173,7 @@ impl Pipeline {
         }
 
         // Then we draw each mesh using offsets
-        let mut last_vertex = 0;
+        // let mut last_vertex = 0;
         let mut last_index = 0;
 
         for layer::Mesh {
