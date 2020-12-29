@@ -17,11 +17,16 @@ svg = []
 
 [dependencies]
 glow = "0.6"
-glow_glyph = "0.4"
+# glow_glyph = "0.4"
 glyph_brush = "0.7"
 euclid = "0.22"
 bytemuck = "1.4"
 log = "0.4"
+
+[dependencies.glow_glyph]
+version = "0.4"
+git = "https://github.com/dskleingeld/glow_glyph"
+# features = ["OpenGL2ES"]
 
 [dependencies.iced_native]
 version = "0.3"

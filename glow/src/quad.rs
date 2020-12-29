@@ -11,6 +11,7 @@ pub struct Pipeline {
     program: <glow::Context as HasContext>::Program,
     vertex_array: <glow::Context as HasContext>::VertexArray,
     instances: <glow::Context as HasContext>::Buffer,
+    instance_buffer: Vec<Quad>,
     transform_location: <glow::Context as HasContext>::UniformLocation,
     scale_location: <glow::Context as HasContext>::UniformLocation,
     screen_height_location: <glow::Context as HasContext>::UniformLocation,
@@ -19,14 +20,63 @@ pub struct Pipeline {
     current_target_height: u32,
 }
 
+/// modification on layer::quad for use with OpenGL (2 ES) without instancing
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+struct Quad {
+    q_pos: [f32; 2],
+    i_pos: [f32; 2],
+    i_scale: [f32; 2],
+    color: [f32; 4],
+    border_color: [f32; 4],
+    border_radius: f32,
+    border_width: f32,
+}
+
+impl Quad {
+    fn from(layer: &layer::Quad, q_pos: [f32; 2]) -> Quad {
+        Self {
+            q_pos,
+            i_pos: layer.position,
+            i_scale: layer.size,
+            color: layer.color,
+            border_color: layer.border_color,
+            border_radius: layer.border_radius,
+            border_width: layer.border_width,
+        }
+    }
+}
+
+#[allow(unsafe_code)]
+unsafe impl bytemuck::Zeroable for Quad {}
+#[allow(unsafe_code)]
+unsafe impl bytemuck::Pod for Quad {}
+
+const POSITIONS: [[f32;2];4] = [
+    [0f32, 0f32],
+    [0f32, 1f32],
+    [1f32, 0f32],
+    [1f32, 1f32],
+];
+
+fn instances_to_slice<'a>(instances: &[layer::Quad], buffer: &'a mut Vec<Quad>) -> &'a[u8] {
+    buffer.clear();
+    for instance in instances {
+        for q_pos in &POSITIONS {
+            buffer.push(Quad::from(instance, *q_pos));
+        }
+    }
+    bytemuck::cast_slice(buffer)
+}
+
 impl Pipeline {
     pub fn new(gl: &glow::Context) -> Pipeline {
         let program = unsafe {
             program::create(
                 gl,
                 &[
-                    (glow::VERTEX_SHADER, include_str!("shader/quad.vert")),
-                    (glow::FRAGMENT_SHADER, include_str!("shader/quad.frag")),
+                    (glow::VERTEX_SHADER, include_str!("shader/quad_GLSL100.vert")),
+                    (glow::FRAGMENT_SHADER, include_str!("shader/quad_GLSL100.frag")),
                 ],
             )
         };
@@ -66,6 +116,7 @@ impl Pipeline {
             program,
             vertex_array,
             instances,
+            instance_buffer: Vec::with_capacity(MAX_INSTANCES*4),
             transform_location,
             scale_location,
             screen_height_location,
@@ -79,19 +130,19 @@ impl Pipeline {
         &mut self,
         gl: &glow::Context,
         target_height: u32,
-        instances: &[layer::Quad],
+        instances: &[layer::Quad], //graphics/src/layer.rs::Quad
         transformation: Transformation,
         scale: f32,
         bounds: Rectangle<u32>,
     ) {
         unsafe {
-            gl.enable(glow::SCISSOR_TEST);
-            gl.scissor(
-                bounds.x as i32,
-                (target_height - (bounds.y + bounds.height)) as i32,
-                bounds.width as i32,
-                bounds.height as i32,
-            );
+            // gl.enable(glow::SCISSOR_TEST);
+            // gl.scissor(
+            //     bounds.x as i32,
+            //     (target_height - (bounds.y + bounds.height)) as i32,
+            //     bounds.width as i32,
+            //     bounds.height as i32,
+            // );
 
             gl.use_program(Some(self.program));
             gl.bind_vertex_array(Some(self.vertex_array));
@@ -141,15 +192,16 @@ impl Pipeline {
                 gl.buffer_sub_data_u8_slice(
                     glow::ARRAY_BUFFER,
                     0,
-                    bytemuck::cast_slice(&instances[i..end]),
+                    instances_to_slice(&instances[i..end], &mut self.instance_buffer),
                 );
 
-                gl.draw_arrays_instanced(
-                    glow::TRIANGLE_STRIP,
-                    0,
-                    4,
-                    amount as i32,
-                );
+                for i in 0..(amount as i32) {
+                    gl.draw_arrays(
+                        glow::TRIANGLE_STRIP,
+                        i*4 as i32,
+                        4,
+                    );
+                }
             }
 
             i += MAX_INSTANCES;
@@ -158,7 +210,7 @@ impl Pipeline {
         unsafe {
             gl.bind_vertex_array(None);
             gl.use_program(None);
-            gl.disable(glow::SCISSOR_TEST);
+            // gl.disable(glow::SCISSOR_TEST);
         }
     }
 }
@@ -177,7 +229,7 @@ unsafe fn create_instance_buffer(
     gl.bind_buffer(glow::ARRAY_BUFFER, Some(buffer));
     gl.buffer_data_size(
         glow::ARRAY_BUFFER,
-        (size * std::mem::size_of::<layer::Quad>()) as i32,
+        (size * 4 * std::mem::size_of::<Quad>()) as i32,
         glow::DYNAMIC_DRAW,
     );
 
@@ -185,48 +237,39 @@ unsafe fn create_instance_buffer(
 
     gl.enable_vertex_attrib_array(0);
     gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, stride, 0);
-    gl.vertex_attrib_divisor(0, 1);
-
     gl.enable_vertex_attrib_array(1);
-    gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, stride, 4 * 2);
-    gl.vertex_attrib_divisor(1, 1);
-
+    gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, stride, 2);
     gl.enable_vertex_attrib_array(2);
-    gl.vertex_attrib_pointer_f32(2, 4, glow::FLOAT, false, stride, 4 * (2 + 2));
-    gl.vertex_attrib_divisor(2, 1);
-
+    gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, stride, 2+2);
     gl.enable_vertex_attrib_array(3);
+    gl.vertex_attrib_pointer_f32(2, 4, glow::FLOAT, false, stride, 2+2+2);
+    gl.enable_vertex_attrib_array(4);
     gl.vertex_attrib_pointer_f32(
-        3,
-        4,
+        3, // attribute
+        4, // length/size
         glow::FLOAT,
         false,
         stride,
-        4 * (2 + 2 + 4),
+        2 + 2 + 2 + 4, // offset
     );
-    gl.vertex_attrib_divisor(3, 1);
-
-    gl.enable_vertex_attrib_array(4);
+    gl.enable_vertex_attrib_array(5);
     gl.vertex_attrib_pointer_f32(
         4,
         1,
         glow::FLOAT,
         false,
         stride,
-        4 * (2 + 2 + 4 + 4),
+        2 + 2 + 2 + 4 + 4,
     );
-    gl.vertex_attrib_divisor(4, 1);
-
-    gl.enable_vertex_attrib_array(5);
+    gl.enable_vertex_attrib_array(6);
     gl.vertex_attrib_pointer_f32(
         5,
         1,
         glow::FLOAT,
         false,
         stride,
-        4 * (2 + 2 + 4 + 4 + 1),
+        2 + 2 + 2 + 4 + 4 + 1,
     );
-    gl.vertex_attrib_divisor(5, 1);
 
     gl.bind_vertex_array(None);
     gl.bind_buffer(glow::ARRAY_BUFFER, None);

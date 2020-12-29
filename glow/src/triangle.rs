@@ -116,7 +116,7 @@ impl Pipeline {
     ) {
         unsafe {
             gl.enable(glow::MULTISAMPLE);
-            gl.enable(glow::SCISSOR_TEST);
+            gl.enable(glow::SCISSOR_TEST); //TODO
             gl.use_program(Some(self.program));
             gl.bind_vertex_array(Some(self.vertex_array));
         }
@@ -190,7 +190,7 @@ impl Pipeline {
                     self.current_transform = transform;
                 }
 
-                gl.scissor(
+                gl.scissor( //TODO
                     clip_bounds.x as i32,
                     (target_height - (clip_bounds.y + clip_bounds.height))
                         as i32,
@@ -198,7 +198,10 @@ impl Pipeline {
                     clip_bounds.height as i32,
                 );
 
-                gl.draw_elements_base_vertex(
+                // TODO this is going to be an issue
+                // might be able to replace this with multiple calls to 
+                // gl DrawElements
+                gl.draw_elements_base_vertex( //since OGL 3.2
                     glow::TRIANGLES,
                     buffers.indices.len() as i32,
                     glow::UNSIGNED_INT,
@@ -214,7 +217,7 @@ impl Pipeline {
         unsafe {
             gl.bind_vertex_array(None);
             gl.use_program(None);
-            gl.disable(glow::SCISSOR_TEST);
+            gl.disable(glow::SCISSOR_TEST); //TODO
             gl.disable(glow::MULTISAMPLE);
         }
     }
