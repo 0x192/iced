@@ -11,6 +11,7 @@ repository = "https://github.com/hecrj/iced"
 canvas = ["iced_graphics/canvas"]
 qr_code = ["iced_graphics/qr_code"]
 default_system_font = ["iced_graphics/font-source"]
+OpenGL2ES = ["glow_glyph/OpenGL2ES"]
 # Not supported yet!
 image = []
 svg = []
@@ -26,7 +27,6 @@ log = "0.4"
 [dependencies.glow_glyph]
 version = "0.4"
 git = "https://github.com/dskleingeld/glow_glyph"
-# features = ["OpenGL2ES"]
 
 [dependencies.iced_native]
 version = "0.3"

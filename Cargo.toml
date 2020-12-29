@@ -33,6 +33,8 @@ glow_canvas = ["iced_glow/canvas"]
 glow_qr_code = ["iced_glow/qr_code"]
 # Enables using system fonts for `iced_glow`
 glow_default_system_font = ["iced_glow/default_system_font"]
+# Enables OpenGL 2ES support replacing support for newer versions
+glow_OpenGL2ES = ["glow_glyph/OpenGL2ES"]
 # Enables a debug view in native platforms (press F12)
 debug = ["iced_winit/debug"]
 # Enables `tokio` as the `executor::Default` on native platforms
