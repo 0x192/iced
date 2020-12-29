@@ -136,13 +136,13 @@ impl Pipeline {
         bounds: Rectangle<u32>,
     ) {
         unsafe {
-            // gl.enable(glow::SCISSOR_TEST);
-            // gl.scissor(
-            //     bounds.x as i32,
-            //     (target_height - (bounds.y + bounds.height)) as i32,
-            //     bounds.width as i32,
-            //     bounds.height as i32,
-            // );
+            gl.enable(glow::SCISSOR_TEST);
+            gl.scissor(
+                bounds.x as i32,
+                (target_height - (bounds.y + bounds.height)) as i32,
+                bounds.width as i32,
+                bounds.height as i32,
+            );
 
             gl.use_program(Some(self.program));
             gl.bind_vertex_array(Some(self.vertex_array));
@@ -210,7 +210,7 @@ impl Pipeline {
         unsafe {
             gl.bind_vertex_array(None);
             gl.use_program(None);
-            // gl.disable(glow::SCISSOR_TEST);
+            gl.disable(glow::SCISSOR_TEST);
         }
     }
 }
@@ -233,42 +233,70 @@ unsafe fn create_instance_buffer(
         glow::DYNAMIC_DRAW,
     );
 
-    let stride = std::mem::size_of::<layer::Quad>() as i32;
+    let stride = std::mem::size_of::<Quad>() as i32;
 
     gl.enable_vertex_attrib_array(0);
-    gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, stride, 0);
+    gl.vertex_attrib_pointer_f32(
+        0, 
+        2, 
+        glow::FLOAT, 
+        false, 
+        stride, 
+        0*std::mem::size_of::<f32>() as i32
+    );
     gl.enable_vertex_attrib_array(1);
-    gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, stride, 2);
+    gl.vertex_attrib_pointer_f32(
+        1, 
+        2, 
+        glow::FLOAT, 
+        false, 
+        stride, 
+        2*std::mem::size_of::<f32>() as i32
+    );
     gl.enable_vertex_attrib_array(2);
-    gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, stride, 2+2);
+    gl.vertex_attrib_pointer_f32(
+        2, 
+        2, 
+        glow::FLOAT, 
+        false, 
+        stride, 
+        (2+2)*std::mem::size_of::<f32>() as i32
+    );
     gl.enable_vertex_attrib_array(3);
-    gl.vertex_attrib_pointer_f32(2, 4, glow::FLOAT, false, stride, 2+2+2);
+    gl.vertex_attrib_pointer_f32(
+        3, 
+        4, 
+        glow::FLOAT, 
+        false, 
+        stride, 
+        (2+2+2)*std::mem::size_of::<f32>() as i32
+    );
     gl.enable_vertex_attrib_array(4);
     gl.vertex_attrib_pointer_f32(
-        3, // attribute
+        4, // attribute
         4, // length/size
         glow::FLOAT,
         false,
         stride,
-        2 + 2 + 2 + 4, // offset
+        (2+2+2+4)*std::mem::size_of::<f32>() as i32, // offset
     );
     gl.enable_vertex_attrib_array(5);
-    gl.vertex_attrib_pointer_f32(
-        4,
-        1,
-        glow::FLOAT,
-        false,
-        stride,
-        2 + 2 + 2 + 4 + 4,
-    );
-    gl.enable_vertex_attrib_array(6);
     gl.vertex_attrib_pointer_f32(
         5,
         1,
         glow::FLOAT,
         false,
         stride,
-        2 + 2 + 2 + 4 + 4 + 1,
+        (2 + 2 + 2 + 4 + 4)*std::mem::size_of::<f32>() as i32,
+    );
+    gl.enable_vertex_attrib_array(6);
+    gl.vertex_attrib_pointer_f32(
+        6,
+        1,
+        glow::FLOAT,
+        false,
+        stride,
+        (2 + 2 + 2 + 4 + 4 + 1)*std::mem::size_of::<f32>() as i32,
     );
 
     gl.bind_vertex_array(None);

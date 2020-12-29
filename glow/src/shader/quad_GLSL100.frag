@@ -1,14 +1,16 @@
-#version 100
-precision mediump float;
+#version 330
+// precision mediump float;
 
 uniform float u_ScreenHeight;
 
-varying vec4 v_Color;
-varying vec4 v_BorderColor;
-varying vec2 v_Pos;
-varying vec2 v_Scale;
-varying float v_BorderRadius;
-varying float v_BorderWidth;
+in vec4 v_Color;
+in vec4 v_BorderColor;
+in vec2 v_Pos;
+in vec2 v_Scale;
+in float v_BorderRadius;
+in float v_BorderWidth;
+
+out vec4 o_Color;
 
 float distance(in vec2 frag_coord, in vec2 position, in vec2 size, float radius)
 {
@@ -34,7 +36,7 @@ void main() {
     vec2 fragCoord = vec2(gl_FragCoord.x, u_ScreenHeight - gl_FragCoord.y);
 
     // TODO: Remove branching (?)
-    if(v_BorderWidth > 0.0) {
+    if(v_BorderWidth > 0) {
         float internal_border = max(v_BorderRadius - v_BorderWidth, 0.0);
 
         float internal_distance = distance(
@@ -65,5 +67,6 @@ void main() {
     float radius_alpha =
         1.0 - smoothstep(max(v_BorderRadius - 0.5, 0.0), v_BorderRadius + 0.5, d);
 
-    gl_FragColor = vec4(mixed_color.xyz, mixed_color.w * radius_alpha);
+    // gl_FragColor = vec4(mixed_color.xyz, mixed_color.w * radius_alpha);
+	o_Color = vec4(mixed_color.xyz, mixed_color.w * radius_alpha);
 }
