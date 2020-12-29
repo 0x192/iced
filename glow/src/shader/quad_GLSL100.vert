@@ -1,23 +1,23 @@
-#version 330
-/* precision mediump float; */
+#version 100
+precision mediump float;
 
 uniform mat4 u_Transform;
 uniform float u_Scale;
 
-layout(location = 0) in vec2 q_Pos;
-layout(location = 1) in vec2 i_Pos;
-layout(location = 2) in vec2 i_Scale;
-layout(location = 3) in vec4 i_Color;
-layout(location = 4) in vec4 i_BorderColor;
-layout(location = 5) in float i_BorderRadius;
-layout(location = 6) in float i_BorderWidth;
+attribute vec2 q_Pos;
+attribute vec2 i_Pos;
+attribute vec2 i_Scale;
+attribute vec4 i_Color;
+attribute vec4 i_BorderColor;
+attribute float i_BorderRadius;
+attribute float i_BorderWidth;
 
-out vec4 v_Color;
-out vec4 v_BorderColor;
-out vec2 v_Pos;
-out vec2 v_Scale;
-out float v_BorderRadius;
-out float v_BorderWidth;
+varying vec4 v_Color;
+varying vec4 v_BorderColor;
+varying vec2 v_Pos;
+varying vec2 v_Scale;
+varying float v_BorderRadius;
+varying float v_BorderWidth;
 
 void main() {
     vec2 p_Pos = i_Pos * u_Scale;
