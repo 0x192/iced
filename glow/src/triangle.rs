@@ -27,10 +27,8 @@ impl Pipeline {
             program::create(
                 gl,
                 &[
-                    (glow::VERTEX_SHADER, include_str!("shader/triangle.vert")),
-                    (
-                        glow::FRAGMENT_SHADER,
-                        include_str!("shader/triangle.frag"),
+                    (glow::VERTEX_SHADER, include_str!("shader/triangle_GLSL100.vert")),
+                    (glow::FRAGMENT_SHADER, include_str!("shader/triangle_GLSL100.frag"),
                     ),
                 ],
             )
