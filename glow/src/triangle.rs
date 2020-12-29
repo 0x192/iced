@@ -16,6 +16,7 @@ pub(crate) struct Pipeline {
     vertex_array: <glow::Context as HasContext>::VertexArray,
     vertices: Buffer<Vertex2D>,
     indices: Buffer<u32>,
+    temp_indices: Vec<u32>,
     transform_location: <glow::Context as HasContext>::UniformLocation,
     current_transform: Transformation,
 }
@@ -101,6 +102,7 @@ impl Pipeline {
             vertex_array,
             vertices,
             indices,
+            temp_indices: Vec::new(),
             transform_location,
             current_transform: Transformation::identity(),
         }
@@ -152,10 +154,19 @@ impl Pipeline {
                     bytemuck::cast_slice(&buffers.vertices),
                 );
 
+                // modify the buffer to add last_vertex to each of the indices
+                self.temp_indices.clear();
+                self.temp_indices.extend_from_slice(&buffers.indices);
+                dbg!(&self.temp_indices);
+                for idx in &mut self.temp_indices {
+                    *idx += last_vertex as u32;
+                }
+                dbg!(&self.temp_indices);
                 gl.buffer_sub_data_u8_slice(
                     glow::ELEMENT_ARRAY_BUFFER,
                     (last_index * std::mem::size_of::<u32>()) as i32,
-                    bytemuck::cast_slice(&buffers.indices),
+                    // bytemuck::cast_slice(&buffers.indices),
+                    bytemuck::cast_slice(&self.temp_indices),
                 );
 
                 last_vertex += buffers.vertices.len();
@@ -190,7 +201,7 @@ impl Pipeline {
                     self.current_transform = transform;
                 }
 
-                gl.scissor( //TODO
+                gl.scissor(
                     clip_bounds.x as i32,
                     (target_height - (clip_bounds.y + clip_bounds.height))
                         as i32,
@@ -201,13 +212,20 @@ impl Pipeline {
                 // TODO this is going to be an issue
                 // might be able to replace this with multiple calls to 
                 // gl DrawElements
-                gl.draw_elements_base_vertex( //since OGL 3.2
-                    glow::TRIANGLES,
-                    buffers.indices.len() as i32,
-                    glow::UNSIGNED_INT,
-                    (last_index * std::mem::size_of::<u32>()) as i32,
-                    last_vertex as i32,
+                gl.draw_elements(
+                    glow::TRIANGLES, // mode
+                    buffers.indices.len() as i32, // count, number of elements to be rendered  
+                    glow::UNSIGNED_INT, // type of the indices
+                    (last_index * std::mem::size_of::<u32>()) as i32, //byte offset for start of indices
                 );
+                
+                // gl.draw_elements_base_vertex( //since OGL 3.2
+                //     glow::TRIANGLES, // mode
+                //     buffers.indices.len() as i32, // count, number of elements to be rendered  
+                //     glow::UNSIGNED_INT, // type of the indices
+                //     (last_index * std::mem::size_of::<u32>()) as i32, //byte offset for start of indices
+                //     last_vertex as i32, // constant added to each from indices when choosing elements
+                // );
 
                 last_vertex += buffers.vertices.len();
                 last_index += buffers.indices.len();
@@ -217,7 +235,7 @@ impl Pipeline {
         unsafe {
             gl.bind_vertex_array(None);
             gl.use_program(None);
-            gl.disable(glow::SCISSOR_TEST); //TODO
+            gl.disable(glow::SCISSOR_TEST);
             gl.disable(glow::MULTISAMPLE);
         }
     }
