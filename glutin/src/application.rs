@@ -92,10 +92,11 @@ where
         application,
         compositor,
         renderer,
-        context,
         runtime,
         debug,
         receiver,
+        context,
+        settings.exit_on_close_request,
     ));
 
     let mut context = task::Context::from_waker(task::noop_waker_ref());
@@ -107,7 +108,22 @@ where
             return;
         }
 
-        if let Some(event) = event.to_static() {
+        let event = match event {
+            glutin::event::Event::WindowEvent {
+                event:
+                    glutin::event::WindowEvent::ScaleFactorChanged {
+                        new_inner_size,
+                        ..
+                    },
+                window_id,
+            } => Some(glutin::event::Event::WindowEvent {
+                event: glutin::event::WindowEvent::Resized(*new_inner_size),
+                window_id,
+            }),
+            _ => event.to_static(),
+        };
+
+        if let Some(event) = event {
             sender.start_send(event).expect("Send event");
 
             let poll = instance.as_mut().poll(&mut context);
@@ -124,10 +140,11 @@ async fn run_instance<A, E, C>(
     mut application: A,
     mut compositor: C,
     mut renderer: A::Renderer,
-    context: glutin::ContextWrapper<glutin::PossiblyCurrent, Window>,
     mut runtime: Runtime<E, Proxy<A::Message>, A::Message>,
     mut debug: Debug,
     mut receiver: mpsc::UnboundedReceiver<glutin::event::Event<'_, A::Message>>,
+    context: glutin::ContextWrapper<glutin::PossiblyCurrent, Window>,
+    exit_on_close_request: bool,
 ) where
     A: Application + 'static,
     E: Executor + 'static,
@@ -136,7 +153,7 @@ async fn run_instance<A, E, C>(
     use glutin::event;
     use iced_winit::futures::stream::StreamExt;
 
-    let clipboard = Clipboard::new(context.window());
+    let mut clipboard = Clipboard::connect(context.window());
 
     let mut state = application::State::new(&application, context.window());
     let mut viewport_version = state.viewport_version();
@@ -170,8 +187,8 @@ async fn run_instance<A, E, C>(
                 let statuses = user_interface.update(
                     &events,
                     state.cursor_position(),
-                    clipboard.as_ref().map(|c| c as _),
                     &mut renderer,
+                    &mut clipboard,
                     &mut messages,
                 );
 
@@ -190,11 +207,14 @@ async fn run_instance<A, E, C>(
                         &mut application,
                         &mut runtime,
                         &mut debug,
+                        &mut clipboard,
                         &mut messages,
                     );
 
                     // Update window
                     state.synchronize(&application, context.window());
+
+                    let should_exit = application.should_exit();
 
                     user_interface =
                         ManuallyDrop::new(application::build_user_interface(
@@ -204,6 +224,10 @@ async fn run_instance<A, E, C>(
                             state.logical_size(),
                             &mut debug,
                         ));
+
+                    if should_exit {
+                        break;
+                    }
                 }
 
                 debug.draw_started();
@@ -274,6 +298,7 @@ async fn run_instance<A, E, C>(
                 ..
             } => {
                 if application::requests_exit(&window_event, state.modifiers())
+                    && exit_on_close_request
                 {
                     break;
                 }

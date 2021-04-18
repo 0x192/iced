@@ -1,5 +1,7 @@
 use crate::window;
-use crate::{Color, Command, Element, Executor, Settings, Subscription};
+use crate::{
+    Clipboard, Color, Command, Element, Executor, Settings, Subscription,
+};
 
 /// An interactive cross-platform application.
 ///
@@ -57,7 +59,7 @@ use crate::{Color, Command, Element, Executor, Settings, Subscription};
 /// says "Hello, world!":
 ///
 /// ```no_run
-/// use iced::{executor, Application, Command, Element, Settings, Text};
+/// use iced::{executor, Application, Clipboard, Command, Element, Settings, Text};
 ///
 /// pub fn main() -> iced::Result {
 ///     Hello::run(Settings::default())
@@ -78,7 +80,7 @@ use crate::{Color, Command, Element, Executor, Settings, Subscription};
 ///         String::from("A cool application")
 ///     }
 ///
-///     fn update(&mut self, _message: Self::Message) -> Command<Self::Message> {
+///     fn update(&mut self, _message: Self::Message, _clipboard: &mut Clipboard) -> Command<Self::Message> {
 ///         Command::none()
 ///     }
 ///
@@ -127,7 +129,11 @@ pub trait Application: Sized {
     /// this method.
     ///
     /// Any [`Command`] returned will be executed immediately in the background.
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message>;
+    fn update(
+        &mut self,
+        message: Self::Message,
+        clipboard: &mut Clipboard,
+    ) -> Command<Self::Message>;
 
     /// Returns the event [`Subscription`] for the current state of the
     /// application.
@@ -178,6 +184,13 @@ pub trait Application: Sized {
         1.0
     }
 
+    /// Returns whether the [`Application`] should be terminated.
+    ///
+    /// By default, it returns `false`.
+    fn should_exit(&self) -> bool {
+        false
+    }
+
     /// Runs the [`Application`].
     ///
     /// On native platforms, this method will take control of the current thread
@@ -200,7 +213,7 @@ pub trait Application: Sized {
                 } else {
                     None
                 },
-                ..crate::renderer::Settings::default()
+                ..crate::renderer::Settings::from_env()
             };
 
             Ok(crate::runtime::application::run::<
@@ -228,9 +241,14 @@ where
 {
     type Renderer = crate::renderer::Renderer;
     type Message = A::Message;
+    type Clipboard = iced_winit::Clipboard;
 
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        self.0.update(message)
+    fn update(
+        &mut self,
+        message: Self::Message,
+        clipboard: &mut iced_winit::Clipboard,
+    ) -> Command<Self::Message> {
+        self.0.update(message, clipboard)
     }
 
     fn view(&mut self) -> Element<'_, Self::Message> {
@@ -259,6 +277,7 @@ where
         match self.0.mode() {
             window::Mode::Windowed => iced_winit::Mode::Windowed,
             window::Mode::Fullscreen => iced_winit::Mode::Fullscreen,
+            window::Mode::Hidden => iced_winit::Mode::Hidden,
         }
     }
 
@@ -272,6 +291,10 @@ where
 
     fn scale_factor(&self) -> f64 {
         self.0.scale_factor()
+    }
+
+    fn should_exit(&self) -> bool {
+        self.0.should_exit()
     }
 }
 
@@ -294,8 +317,12 @@ where
         self.0.title()
     }
 
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        self.0.update(message)
+    fn update(
+        &mut self,
+        message: Self::Message,
+        clipboard: &mut Clipboard,
+    ) -> Command<Self::Message> {
+        self.0.update(message, clipboard)
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {

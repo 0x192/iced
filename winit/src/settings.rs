@@ -23,6 +23,10 @@ pub struct Settings<Flags> {
     ///
     /// [`Application`]: crate::Application
     pub flags: Flags,
+
+    /// Whether the [`Application`] should exit when the user requests the
+    /// window to close (e.g. the user presses the close button).
+    pub exit_on_close_request: bool,
 }
 
 /// The window settings of an application.
@@ -76,7 +80,8 @@ impl Window {
             .with_transparent(self.transparent)
             .with_window_icon(self.icon)
             .with_always_on_top(self.always_on_top)
-            .with_fullscreen(conversion::fullscreen(primary_monitor, mode));
+            .with_fullscreen(conversion::fullscreen(primary_monitor, mode))
+            .with_visible(conversion::visible(mode));
 
         if let Some((width, height)) = self.min_size {
             window_builder = window_builder

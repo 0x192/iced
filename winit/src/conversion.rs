@@ -33,6 +33,9 @@ pub fn window_event(
                 height: logical_size.height,
             }))
         }
+        WindowEvent::CloseRequested => {
+            Some(Event::Window(window::Event::CloseRequested))
+        }
         WindowEvent::CursorMoved { position, .. } => {
             let position = position.to_logical::<f64>(scale_factor);
 
@@ -138,10 +141,18 @@ pub fn fullscreen(
     mode: Mode,
 ) -> Option<winit::window::Fullscreen> {
     match mode {
-        Mode::Windowed => None,
+        Mode::Windowed | Mode::Hidden => None,
         Mode::Fullscreen => {
             Some(winit::window::Fullscreen::Borderless(monitor))
         }
+    }
+}
+
+/// Converts a [`Mode`] to a visibility flag.
+pub fn visible(mode: Mode) -> bool {
+    match mode {
+        Mode::Windowed | Mode::Fullscreen => true,
+        Mode::Hidden => false,
     }
 }
 
