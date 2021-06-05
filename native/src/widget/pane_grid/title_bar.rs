@@ -2,7 +2,9 @@ use crate::container;
 use crate::event::{self, Event};
 use crate::layout;
 use crate::pane_grid;
-use crate::{Clipboard, Element, Hasher, Layout, Point, Rectangle, Size};
+use crate::{
+    Clipboard, Element, Hasher, Layout, Padding, Point, Rectangle, Size,
+};
 
 /// The title bar of a [`Pane`].
 ///
@@ -11,7 +13,7 @@ use crate::{Clipboard, Element, Hasher, Layout, Point, Rectangle, Size};
 pub struct TitleBar<'a, Message, Renderer: pane_grid::Renderer> {
     content: Element<'a, Message, Renderer>,
     controls: Option<Element<'a, Message, Renderer>>,
-    padding: u16,
+    padding: Padding,
     always_show_controls: bool,
     style: <Renderer as container::Renderer>::Style,
 }
@@ -28,7 +30,7 @@ where
         Self {
             content: content.into(),
             controls: None,
-            padding: 0,
+            padding: Padding::ZERO,
             always_show_controls: false,
             style: Default::default(),
         }
@@ -43,9 +45,9 @@ where
         self
     }
 
-    /// Sets the padding of the [`TitleBar`].
-    pub fn padding(mut self, units: u16) -> Self {
-        self.padding = units;
+    /// Sets the [`Padding`] of the [`TitleBar`].
+    pub fn padding<P: Into<Padding>>(mut self, padding: P) -> Self {
+        self.padding = padding.into();
         self
     }
 
@@ -129,15 +131,16 @@ where
         if layout.bounds().contains(cursor_position) {
             let mut children = layout.children();
             let padded = children.next().unwrap();
+            let mut children = padded.children();
+            let title_layout = children.next().unwrap();
 
             if self.controls.is_some() {
-                let mut children = padded.children();
-                let _ = children.next().unwrap();
                 let controls_layout = children.next().unwrap();
 
                 !controls_layout.bounds().contains(cursor_position)
+                    && !title_layout.bounds().contains(cursor_position)
             } else {
-                true
+                !title_layout.bounds().contains(cursor_position)
             }
         } else {
             false
@@ -160,8 +163,7 @@ where
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let padding = f32::from(self.padding);
-        let limits = limits.pad(padding);
+        let limits = limits.pad(self.padding);
         let max_size = limits.max();
 
         let title_layout = self
@@ -191,9 +193,12 @@ where
             )
         };
 
-        node.move_to(Point::new(padding, padding));
+        node.move_to(Point::new(
+            self.padding.left.into(),
+            self.padding.top.into(),
+        ));
 
-        layout::Node::with_children(node.size().pad(padding), vec![node])
+        layout::Node::with_children(node.size().pad(self.padding), vec![node])
     }
 
     pub(crate) fn on_event(
@@ -205,16 +210,17 @@ where
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
     ) -> event::Status {
-        if let Some(controls) = &mut self.controls {
-            let mut children = layout.children();
-            let padded = children.next().unwrap();
+        let mut children = layout.children();
+        let padded = children.next().unwrap();
 
-            let mut children = padded.children();
-            let _ = children.next();
+        let mut children = padded.children();
+        let title_layout = children.next().unwrap();
+
+        let control_status = if let Some(controls) = &mut self.controls {
             let controls_layout = children.next().unwrap();
 
             controls.on_event(
-                event,
+                event.clone(),
                 controls_layout,
                 cursor_position,
                 renderer,
@@ -223,6 +229,17 @@ where
             )
         } else {
             event::Status::Ignored
-        }
+        };
+
+        let title_status = self.content.on_event(
+            event,
+            title_layout,
+            cursor_position,
+            renderer,
+            clipboard,
+            messages,
+        );
+
+        control_status.merge(title_status)
     }
 }
