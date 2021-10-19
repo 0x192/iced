@@ -268,41 +268,42 @@ where
 
                     match click.kind() {
                         click::Kind::Single => {
-                            if target > 0.0 {
+                            let position = if target > 0.0 {
                                 let value = if self.is_secure {
                                     self.value.secure()
                                 } else {
                                     self.value.clone()
                                 };
 
-                                let position = renderer.find_cursor_position(
+                                renderer.find_cursor_position(
                                     text_layout.bounds(),
                                     self.font,
                                     self.size,
                                     &value,
                                     &self.state,
                                     target,
-                                );
-
-                                self.state.cursor.move_to(position);
+                                )
                             } else {
-                                self.state.cursor.move_to(0);
-                            }
+                                None
+                            };
 
+                            self.state.cursor.move_to(position.unwrap_or(0));
                             self.state.is_dragging = true;
                         }
                         click::Kind::Double => {
                             if self.is_secure {
                                 self.state.cursor.select_all(&self.value);
                             } else {
-                                let position = renderer.find_cursor_position(
-                                    text_layout.bounds(),
-                                    self.font,
-                                    self.size,
-                                    &self.value,
-                                    &self.state,
-                                    target,
-                                );
+                                let position = renderer
+                                    .find_cursor_position(
+                                        text_layout.bounds(),
+                                        self.font,
+                                        self.size,
+                                        &self.value,
+                                        &self.state,
+                                        target,
+                                    )
+                                    .unwrap_or(0);
 
                                 self.state.cursor.select_range(
                                     self.value.previous_start_of_word(position),
@@ -341,14 +342,16 @@ where
                             self.value.clone()
                         };
 
-                        let position = renderer.find_cursor_position(
-                            text_layout.bounds(),
-                            self.font,
-                            self.size,
-                            &value,
-                            &self.state,
-                            target,
-                        );
+                        let position = renderer
+                            .find_cursor_position(
+                                text_layout.bounds(),
+                                self.font,
+                                self.size,
+                                &value,
+                                &self.state,
+                                target,
+                            )
+                            .unwrap_or(0);
 
                         self.state.cursor.select_range(
                             self.state.cursor.start(&value),
@@ -362,7 +365,7 @@ where
             Event::Keyboard(keyboard::Event::CharacterReceived(c))
                 if self.state.is_focused
                     && self.state.is_pasting.is_none()
-                    && !self.state.keyboard_modifiers.is_command_pressed()
+                    && !self.state.keyboard_modifiers.command()
                     && !c.is_control() =>
             {
                 let mut editor =
@@ -450,7 +453,7 @@ where
                         if platform::is_jump_modifier_pressed(modifiers)
                             && !self.is_secure
                         {
-                            if modifiers.shift {
+                            if modifiers.shift() {
                                 self.state
                                     .cursor
                                     .select_left_by_words(&self.value);
@@ -459,7 +462,7 @@ where
                                     .cursor
                                     .move_left_by_words(&self.value);
                             }
-                        } else if modifiers.shift {
+                        } else if modifiers.shift() {
                             self.state.cursor.select_left(&self.value)
                         } else {
                             self.state.cursor.move_left(&self.value);
@@ -469,7 +472,7 @@ where
                         if platform::is_jump_modifier_pressed(modifiers)
                             && !self.is_secure
                         {
-                            if modifiers.shift {
+                            if modifiers.shift() {
                                 self.state
                                     .cursor
                                     .select_right_by_words(&self.value);
@@ -478,14 +481,14 @@ where
                                     .cursor
                                     .move_right_by_words(&self.value);
                             }
-                        } else if modifiers.shift {
+                        } else if modifiers.shift() {
                             self.state.cursor.select_right(&self.value)
                         } else {
                             self.state.cursor.move_right(&self.value);
                         }
                     }
                     keyboard::KeyCode::Home => {
-                        if modifiers.shift {
+                        if modifiers.shift() {
                             self.state.cursor.select_range(
                                 self.state.cursor.start(&self.value),
                                 0,
@@ -495,7 +498,7 @@ where
                         }
                     }
                     keyboard::KeyCode::End => {
-                        if modifiers.shift {
+                        if modifiers.shift() {
                             self.state.cursor.select_range(
                                 self.state.cursor.start(&self.value),
                                 self.value.len(),
@@ -505,10 +508,7 @@ where
                         }
                     }
                     keyboard::KeyCode::C
-                        if self
-                            .state
-                            .keyboard_modifiers
-                            .is_command_pressed() =>
+                        if self.state.keyboard_modifiers.command() =>
                     {
                         match self.state.cursor.selection(&self.value) {
                             Some((start, end)) => {
@@ -520,10 +520,7 @@ where
                         }
                     }
                     keyboard::KeyCode::X
-                        if self
-                            .state
-                            .keyboard_modifiers
-                            .is_command_pressed() =>
+                        if self.state.keyboard_modifiers.command() =>
                     {
                         match self.state.cursor.selection(&self.value) {
                             Some((start, end)) => {
@@ -545,7 +542,7 @@ where
                         messages.push(message);
                     }
                     keyboard::KeyCode::V => {
-                        if self.state.keyboard_modifiers.is_command_pressed() {
+                        if self.state.keyboard_modifiers.command() {
                             let content = match self.state.is_pasting.take() {
                                 Some(content) => content,
                                 None => {
@@ -576,10 +573,7 @@ where
                         }
                     }
                     keyboard::KeyCode::A
-                        if self
-                            .state
-                            .keyboard_modifiers
-                            .is_command_pressed() =>
+                        if self.state.keyboard_modifiers.command() =>
                     {
                         self.state.cursor.select_all(&self.value);
                     }
@@ -590,6 +584,11 @@ where
 
                         self.state.keyboard_modifiers =
                             keyboard::Modifiers::default();
+                    }
+                    keyboard::KeyCode::Tab
+                    | keyboard::KeyCode::Up
+                    | keyboard::KeyCode::Down => {
+                        return event::Status::Ignored;
                     }
                     _ => {}
                 }
@@ -602,6 +601,11 @@ where
                 match key_code {
                     keyboard::KeyCode::V => {
                         self.state.is_pasting = None;
+                    }
+                    keyboard::KeyCode::Tab
+                    | keyboard::KeyCode::Up
+                    | keyboard::KeyCode::Down => {
+                        return event::Status::Ignored;
                     }
                     _ => {}
                 }
@@ -701,20 +705,20 @@ pub trait Renderer: text::Renderer + Sized {
         value: &Value,
         state: &State,
         x: f32,
-    ) -> usize {
+    ) -> Option<usize> {
         let size = size.unwrap_or(self.default_size());
 
         let offset = self.offset(text_bounds, font, size, &value, &state);
 
-        find_cursor_position(
-            self,
-            &value,
+        self.hit_test(
+            &value.to_string(),
+            size.into(),
             font,
-            size,
-            x + offset,
-            0,
-            value.len(),
+            Size::INFINITY,
+            Point::new(x + offset, text_bounds.height / 2.0),
+            true,
         )
+        .map(text::Hit::cursor)
     }
 }
 
@@ -795,61 +799,10 @@ impl State {
     pub fn move_cursor_to(&mut self, position: usize) {
         self.cursor.move_to(position);
     }
-}
 
-// TODO: Reduce allocations
-fn find_cursor_position<Renderer: self::Renderer>(
-    renderer: &Renderer,
-    value: &Value,
-    font: Renderer::Font,
-    size: u16,
-    target: f32,
-    start: usize,
-    end: usize,
-) -> usize {
-    if start >= end {
-        if start == 0 {
-            return 0;
-        }
-
-        let prev = value.until(start - 1);
-        let next = value.until(start);
-
-        let prev_width = renderer.measure_value(&prev.to_string(), size, font);
-        let next_width = renderer.measure_value(&next.to_string(), size, font);
-
-        if next_width - target > target - prev_width {
-            return start - 1;
-        } else {
-            return start;
-        }
-    }
-
-    let index = (end - start) / 2;
-    let subvalue = value.until(start + index);
-
-    let width = renderer.measure_value(&subvalue.to_string(), size, font);
-
-    if width > target {
-        find_cursor_position(
-            renderer,
-            value,
-            font,
-            size,
-            target,
-            start,
-            start + index,
-        )
-    } else {
-        find_cursor_position(
-            renderer,
-            value,
-            font,
-            size,
-            target,
-            start + index + 1,
-            end,
-        )
+    /// Selects all the content of the [`TextInput`].
+    pub fn select_all(&mut self) {
+        self.cursor.select_range(0, usize::MAX);
     }
 }
 
@@ -858,9 +811,9 @@ mod platform {
 
     pub fn is_jump_modifier_pressed(modifiers: keyboard::Modifiers) -> bool {
         if cfg!(target_os = "macos") {
-            modifiers.alt
+            modifiers.alt()
         } else {
-            modifiers.control
+            modifiers.control()
         }
     }
 }

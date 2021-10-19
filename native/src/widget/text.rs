@@ -1,8 +1,11 @@
 //! Write some text for your users to read.
+use crate::alignment;
+use crate::layout;
 use crate::{
-    layout, Color, Element, Hasher, HorizontalAlignment, Layout, Length, Point,
-    Rectangle, Size, VerticalAlignment, Widget,
+    Color, Element, Hasher, Layout, Length, Point, Rectangle, Size, Widget,
 };
+
+pub use iced_core::text::Hit;
 
 use std::hash::Hash;
 
@@ -27,8 +30,8 @@ pub struct Text<Renderer: self::Renderer> {
     font: Renderer::Font,
     width: Length,
     height: Length,
-    horizontal_alignment: HorizontalAlignment,
-    vertical_alignment: VerticalAlignment,
+    horizontal_alignment: alignment::Horizontal,
+    vertical_alignment: alignment::Vertical,
 }
 
 impl<Renderer: self::Renderer> Text<Renderer> {
@@ -41,8 +44,8 @@ impl<Renderer: self::Renderer> Text<Renderer> {
             font: Default::default(),
             width: Length::Shrink,
             height: Length::Shrink,
-            horizontal_alignment: HorizontalAlignment::Left,
-            vertical_alignment: VerticalAlignment::Top,
+            horizontal_alignment: alignment::Horizontal::Left,
+            vertical_alignment: alignment::Vertical::Top,
         }
     }
 
@@ -81,14 +84,17 @@ impl<Renderer: self::Renderer> Text<Renderer> {
     /// Sets the [`HorizontalAlignment`] of the [`Text`].
     pub fn horizontal_alignment(
         mut self,
-        alignment: HorizontalAlignment,
+        alignment: alignment::Horizontal,
     ) -> Self {
         self.horizontal_alignment = alignment;
         self
     }
 
     /// Sets the [`VerticalAlignment`] of the [`Text`].
-    pub fn vertical_alignment(mut self, alignment: VerticalAlignment) -> Self {
+    pub fn vertical_alignment(
+        mut self,
+        alignment: alignment::Vertical,
+    ) -> Self {
         self.vertical_alignment = alignment;
         self
     }
@@ -179,6 +185,23 @@ pub trait Renderer: crate::Renderer {
         bounds: Size,
     ) -> (f32, f32);
 
+    /// Tests whether the provided point is within the boundaries of [`Text`]
+    /// laid out with the given parameters, returning information about
+    /// the nearest character.
+    ///
+    /// If `nearest_only` is true, the hit test does not consider whether the
+    /// the point is interior to any glyph bounds, returning only the character
+    /// with the nearest centeroid.
+    fn hit_test(
+        &self,
+        contents: &str,
+        size: f32,
+        font: Self::Font,
+        bounds: Size,
+        point: Point,
+        nearest_only: bool,
+    ) -> Option<Hit>;
+
     /// Draws a [`Text`] fragment.
     ///
     /// It receives:
@@ -196,8 +219,8 @@ pub trait Renderer: crate::Renderer {
         size: u16,
         font: Self::Font,
         color: Option<Color>,
-        horizontal_alignment: HorizontalAlignment,
-        vertical_alignment: VerticalAlignment,
+        horizontal_alignment: alignment::Horizontal,
+        vertical_alignment: alignment::Vertical,
     ) -> Self::Output;
 }
 

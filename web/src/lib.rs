@@ -49,7 +49,7 @@
 //!
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
-//! [`tour` example]: https://github.com/hecrj/iced/tree/0.2/examples/tour
+//! [`tour` example]: https://github.com/hecrj/iced/tree/0.3/examples/tour
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 #![deny(unused_results)]
@@ -59,7 +59,7 @@ use dodrio::bumpalo;
 use std::{cell::RefCell, rc::Rc};
 
 mod bus;
-mod clipboard;
+mod command;
 mod element;
 mod hasher;
 
@@ -68,17 +68,23 @@ pub mod subscription;
 pub mod widget;
 
 pub use bus::Bus;
-pub use clipboard::Clipboard;
+pub use command::Command;
 pub use css::Css;
 pub use dodrio;
 pub use element::Element;
 pub use hasher::Hasher;
-pub use iced_core::{
-    keyboard, mouse, Align, Background, Color, Font, HorizontalAlignment,
-    Length, Padding, Point, Rectangle, Size, Vector, VerticalAlignment,
-};
-pub use iced_futures::{executor, futures, Command};
 pub use subscription::Subscription;
+
+pub use iced_core::alignment;
+pub use iced_core::keyboard;
+pub use iced_core::mouse;
+pub use iced_futures::executor;
+pub use iced_futures::futures;
+
+pub use iced_core::{
+    Alignment, Background, Color, Font, Length, Padding, Point, Rectangle,
+    Size, Vector,
+};
 
 #[doc(no_inline)]
 pub use widget::*;
@@ -128,11 +134,7 @@ pub trait Application {
     /// this method.
     ///
     /// Any [`Command`] returned will be executed immediately in the background.
-    fn update(
-        &mut self,
-        message: Self::Message,
-        clipboard: &mut Clipboard,
-    ) -> Command<Self::Message>;
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message>;
 
     /// Returns the widgets to display in the [`Application`].
     ///
@@ -162,8 +164,6 @@ pub trait Application {
         let document = window.document().unwrap();
         let body = document.body().unwrap();
 
-        let mut clipboard = Clipboard::new();
-
         let (sender, receiver) =
             iced_futures::futures::channel::mpsc::unbounded();
 
@@ -177,7 +177,7 @@ pub trait Application {
         let mut title = app.title();
         document.set_title(&title);
 
-        runtime.spawn(command);
+        run_command(command, &mut runtime);
 
         let application = Rc::new(RefCell::new(app));
 
@@ -190,8 +190,7 @@ pub trait Application {
 
         let event_loop = receiver.for_each(move |message| {
             let (command, subscription) = runtime.enter(|| {
-                let command =
-                    application.borrow_mut().update(message, &mut clipboard);
+                let command = application.borrow_mut().update(message);
                 let subscription = application.borrow().subscription();
 
                 (command, subscription)
@@ -199,7 +198,7 @@ pub trait Application {
 
             let new_title = application.borrow().title();
 
-            runtime.spawn(command);
+            run_command(command, &mut runtime);
             runtime.track(subscription);
 
             if title != new_title {
@@ -225,6 +224,189 @@ struct Instance<A: Application> {
 impl<'a, A> dodrio::Render<'a> for Instance<A>
 where
     A: Application,
+{
+    fn render(
+        &self,
+        context: &mut dodrio::RenderContext<'a>,
+    ) -> dodrio::Node<'a> {
+        use dodrio::builder::*;
+
+        let mut ui = self.application.borrow_mut();
+        let element = ui.view();
+        let mut css = Css::new();
+
+        let node = element.widget.node(context.bump, &self.bus, &mut css);
+
+        div(context.bump)
+            .attr("style", "width: 100%; height: 100%")
+            .children(vec![css.node(context.bump), node])
+            .finish()
+    }
+}
+
+/// An interactive embedded web application.
+///
+/// This trait is the main entrypoint of Iced. Once implemented, you can run
+/// your GUI application by simply calling [`run`](#method.run). It will either
+/// take control of the `<body>' or of an HTML element of the document specified
+/// by `container_id`.
+///
+/// An [`Embedded`](trait.Embedded.html) can execute asynchronous actions
+/// by returning a [`Command`](struct.Command.html) in some of its methods.
+pub trait Embedded {
+    /// The [`Executor`] that will run commands and subscriptions.
+    ///
+    /// The [`executor::WasmBindgen`] can be a good choice for the Web.
+    ///
+    /// [`Executor`]: trait.Executor.html
+    /// [`executor::Default`]: executor/struct.Default.html
+    type Executor: Executor;
+
+    /// The type of __messages__ your [`Embedded`] application will produce.
+    ///
+    /// [`Embedded`]: trait.Embedded.html
+    type Message: Send;
+
+    /// The data needed to initialize your [`Embedded`] application.
+    ///
+    /// [`Embedded`]: trait.Embedded.html
+    type Flags;
+
+    /// Initializes the [`Embedded`] application.
+    ///
+    /// Here is where you should return the initial state of your app.
+    ///
+    /// Additionally, you can return a [`Command`](struct.Command.html) if you
+    /// need to perform some async action in the background on startup. This is
+    /// useful if you want to load state from a file, perform an initial HTTP
+    /// request, etc.
+    ///
+    /// [`Embedded`]: trait.Embedded.html
+    fn new(flags: Self::Flags) -> (Self, Command<Self::Message>)
+    where
+        Self: Sized;
+
+    /// Handles a __message__ and updates the state of the [`Embedded`]
+    /// application.
+    ///
+    /// This is where you define your __update logic__. All the __messages__,
+    /// produced by either user interactions or commands, will be handled by
+    /// this method.
+    ///
+    /// Any [`Command`] returned will be executed immediately in the background.
+    ///
+    /// [`Embedded`]: trait.Embedded.html
+    /// [`Command`]: struct.Command.html
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message>;
+
+    /// Returns the widgets to display in the [`Embedded`] application.
+    ///
+    /// These widgets can produce __messages__ based on user interaction.
+    ///
+    /// [`Embedded`]: trait.Embedded.html
+    fn view(&mut self) -> Element<'_, Self::Message>;
+
+    /// Returns the event [`Subscription`] for the current state of the embedded
+    /// application.
+    ///
+    /// A [`Subscription`] will be kept alive as long as you keep returning it,
+    /// and the __messages__ produced will be handled by
+    /// [`update`](#tymethod.update).
+    ///
+    /// By default, this method returns an empty [`Subscription`].
+    ///
+    /// [`Subscription`]: struct.Subscription.html
+    fn subscription(&self) -> Subscription<Self::Message> {
+        Subscription::none()
+    }
+
+    /// Runs the [`Embedded`] application.
+    ///
+    /// [`Embedded`]: trait.Embedded.html
+    fn run(flags: Self::Flags, container_id: Option<String>)
+    where
+        Self: 'static + Sized,
+    {
+        use futures::stream::StreamExt;
+        use wasm_bindgen::JsCast;
+        use web_sys::HtmlElement;
+
+        let window = web_sys::window().unwrap();
+        let document = window.document().unwrap();
+        let container: HtmlElement = container_id
+            .map(|id| document.get_element_by_id(&id).unwrap())
+            .map(|container| {
+                container.dyn_ref::<HtmlElement>().unwrap().to_owned()
+            })
+            .unwrap_or_else(|| document.body().unwrap());
+
+        let (sender, receiver) =
+            iced_futures::futures::channel::mpsc::unbounded();
+
+        let mut runtime = iced_futures::Runtime::new(
+            Self::Executor::new().expect("Create executor"),
+            sender.clone(),
+        );
+
+        let (app, command) = runtime.enter(|| Self::new(flags));
+        run_command(command, &mut runtime);
+
+        let application = Rc::new(RefCell::new(app));
+
+        let instance = EmbeddedInstance {
+            application: application.clone(),
+            bus: Bus::new(sender),
+        };
+
+        let vdom = dodrio::Vdom::new(&container, instance);
+
+        let event_loop = receiver.for_each(move |message| {
+            let (command, subscription) = runtime.enter(|| {
+                let command = application.borrow_mut().update(message);
+                let subscription = application.borrow().subscription();
+
+                (command, subscription)
+            });
+
+            run_command(command, &mut runtime);
+            runtime.track(subscription);
+
+            vdom.weak().schedule_render();
+
+            futures::future::ready(())
+        });
+
+        wasm_bindgen_futures::spawn_local(event_loop);
+    }
+}
+
+fn run_command<Message: 'static + Send, E: Executor>(
+    command: Command<Message>,
+    runtime: &mut iced_futures::Runtime<
+        Hasher,
+        (),
+        E,
+        iced_futures::futures::channel::mpsc::UnboundedSender<Message>,
+        Message,
+    >,
+) {
+    for action in command.actions() {
+        match action {
+            command::Action::Future(future) => {
+                runtime.spawn(future);
+            }
+        }
+    }
+}
+
+struct EmbeddedInstance<A: Embedded> {
+    application: Rc<RefCell<A>>,
+    bus: Bus<A::Message>,
+}
+
+impl<'a, A> dodrio::Render<'a> for EmbeddedInstance<A>
+where
+    A: Embedded,
 {
     fn render(
         &self,

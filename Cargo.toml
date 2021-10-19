@@ -10,6 +10,7 @@ documentation = "https://docs.rs/iced"
 readme = "README.md"
 keywords = ["gui", "ui", "graphics", "interface", "widgets"]
 categories = ["gui"]
+resolver = "2"
 
 [features]
 default = ["wgpu", "default_system_font"]
@@ -72,7 +73,8 @@ members = [
     "examples/events",
     "examples/game_of_life",
     "examples/geometry",
-    "examples/integration",
+    "examples/integration_opengl",
+    "examples/integration_wgpu",
     "examples/pane_grid",
     "examples/pick_list",
     "examples/pokedex",
@@ -84,8 +86,9 @@ members = [
     "examples/styling",
     "examples/svg",
     "examples/todos",
-    "examples/tour",
     "examples/tooltip",
+    "examples/tour",
+    "examples/url_handler",
 ]
 
 [dependencies]

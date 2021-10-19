@@ -1,7 +1,5 @@
 use crate::window;
-use crate::{
-    Clipboard, Color, Command, Element, Executor, Settings, Subscription,
-};
+use crate::{Color, Command, Element, Executor, Settings, Subscription};
 
 /// An interactive cross-platform application.
 ///
@@ -39,15 +37,15 @@ use crate::{
 /// to listen to time.
 /// - [`todos`], a todos tracker inspired by [TodoMVC].
 ///
-/// [The repository has a bunch of examples]: https://github.com/hecrj/iced/tree/0.2/examples
-/// [`clock`]: https://github.com/hecrj/iced/tree/0.2/examples/clock
-/// [`download_progress`]: https://github.com/hecrj/iced/tree/0.2/examples/download_progress
-/// [`events`]: https://github.com/hecrj/iced/tree/0.2/examples/events
-/// [`game_of_life`]: https://github.com/hecrj/iced/tree/0.2/examples/game_of_life
-/// [`pokedex`]: https://github.com/hecrj/iced/tree/0.2/examples/pokedex
-/// [`solar_system`]: https://github.com/hecrj/iced/tree/0.2/examples/solar_system
-/// [`stopwatch`]: https://github.com/hecrj/iced/tree/0.2/examples/stopwatch
-/// [`todos`]: https://github.com/hecrj/iced/tree/0.2/examples/todos
+/// [The repository has a bunch of examples]: https://github.com/hecrj/iced/tree/0.3/examples
+/// [`clock`]: https://github.com/hecrj/iced/tree/0.3/examples/clock
+/// [`download_progress`]: https://github.com/hecrj/iced/tree/0.3/examples/download_progress
+/// [`events`]: https://github.com/hecrj/iced/tree/0.3/examples/events
+/// [`game_of_life`]: https://github.com/hecrj/iced/tree/0.3/examples/game_of_life
+/// [`pokedex`]: https://github.com/hecrj/iced/tree/0.3/examples/pokedex
+/// [`solar_system`]: https://github.com/hecrj/iced/tree/0.3/examples/solar_system
+/// [`stopwatch`]: https://github.com/hecrj/iced/tree/0.3/examples/stopwatch
+/// [`todos`]: https://github.com/hecrj/iced/tree/0.3/examples/todos
 /// [`Sandbox`]: crate::Sandbox
 /// [`Canvas`]: crate::widget::Canvas
 /// [PokéAPI]: https://pokeapi.co/
@@ -59,7 +57,7 @@ use crate::{
 /// says "Hello, world!":
 ///
 /// ```no_run
-/// use iced::{executor, Application, Clipboard, Command, Element, Settings, Text};
+/// use iced::{executor, Application, Command, Element, Settings, Text};
 ///
 /// pub fn main() -> iced::Result {
 ///     Hello::run(Settings::default())
@@ -80,7 +78,7 @@ use crate::{
 ///         String::from("A cool application")
 ///     }
 ///
-///     fn update(&mut self, _message: Self::Message, _clipboard: &mut Clipboard) -> Command<Self::Message> {
+///     fn update(&mut self, _message: Self::Message) -> Command<Self::Message> {
 ///         Command::none()
 ///     }
 ///
@@ -129,11 +127,7 @@ pub trait Application: Sized {
     /// this method.
     ///
     /// Any [`Command`] returned will be executed immediately in the background.
-    fn update(
-        &mut self,
-        message: Self::Message,
-        clipboard: &mut Clipboard,
-    ) -> Command<Self::Message>;
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message>;
 
     /// Returns the event [`Subscription`] for the current state of the
     /// application.
@@ -208,6 +202,7 @@ pub trait Application: Sized {
             let renderer_settings = crate::renderer::Settings {
                 default_font: settings.default_font,
                 default_text_size: settings.default_text_size,
+                text_multithreading: settings.text_multithreading,
                 antialiasing: if settings.antialiasing {
                     Some(crate::renderer::settings::Antialiasing::MSAAx4)
                 } else {
@@ -241,14 +236,9 @@ where
 {
     type Renderer = crate::renderer::Renderer;
     type Message = A::Message;
-    type Clipboard = iced_winit::Clipboard;
 
-    fn update(
-        &mut self,
-        message: Self::Message,
-        clipboard: &mut iced_winit::Clipboard,
-    ) -> Command<Self::Message> {
-        self.0.update(message, clipboard)
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        self.0.update(message)
     }
 
     fn view(&mut self) -> Element<'_, Self::Message> {
@@ -317,12 +307,8 @@ where
         self.0.title()
     }
 
-    fn update(
-        &mut self,
-        message: Self::Message,
-        clipboard: &mut Clipboard,
-    ) -> Command<Self::Message> {
-        self.0.update(message, clipboard)
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        self.0.update(message)
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {

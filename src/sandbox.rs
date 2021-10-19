@@ -1,6 +1,5 @@
 use crate::{
-    Application, Clipboard, Color, Command, Element, Error, Settings,
-    Subscription,
+    Application, Color, Command, Element, Error, Settings, Subscription,
 };
 
 /// A sandboxed [`Application`].
@@ -36,19 +35,19 @@ use crate::{
 /// - [`tour`], a simple UI tour that can run both on native platforms and the
 /// web!
 ///
-/// [The repository has a bunch of examples]: https://github.com/hecrj/iced/tree/0.2/examples
-/// [`bezier_tool`]: https://github.com/hecrj/iced/tree/0.2/examples/bezier_tool
-/// [`counter`]: https://github.com/hecrj/iced/tree/0.2/examples/counter
-/// [`custom_widget`]: https://github.com/hecrj/iced/tree/0.2/examples/custom_widget
-/// [`geometry`]: https://github.com/hecrj/iced/tree/0.2/examples/geometry
-/// [`pane_grid`]: https://github.com/hecrj/iced/tree/0.2/examples/pane_grid
-/// [`progress_bar`]: https://github.com/hecrj/iced/tree/0.2/examples/progress_bar
-/// [`styling`]: https://github.com/hecrj/iced/tree/0.2/examples/styling
-/// [`svg`]: https://github.com/hecrj/iced/tree/0.2/examples/svg
-/// [`tour`]: https://github.com/hecrj/iced/tree/0.2/examples/tour
+/// [The repository has a bunch of examples]: https://github.com/hecrj/iced/tree/0.3/examples
+/// [`bezier_tool`]: https://github.com/hecrj/iced/tree/0.3/examples/bezier_tool
+/// [`counter`]: https://github.com/hecrj/iced/tree/0.3/examples/counter
+/// [`custom_widget`]: https://github.com/hecrj/iced/tree/0.3/examples/custom_widget
+/// [`geometry`]: https://github.com/hecrj/iced/tree/0.3/examples/geometry
+/// [`pane_grid`]: https://github.com/hecrj/iced/tree/0.3/examples/pane_grid
+/// [`progress_bar`]: https://github.com/hecrj/iced/tree/0.3/examples/progress_bar
+/// [`styling`]: https://github.com/hecrj/iced/tree/0.3/examples/styling
+/// [`svg`]: https://github.com/hecrj/iced/tree/0.3/examples/svg
+/// [`tour`]: https://github.com/hecrj/iced/tree/0.3/examples/tour
 /// [`Canvas widget`]: crate::widget::Canvas
 /// [the overview]: index.html#overview
-/// [`iced_wgpu`]: https://github.com/hecrj/iced/tree/0.2/wgpu
+/// [`iced_wgpu`]: https://github.com/hecrj/iced/tree/0.3/wgpu
 /// [`Svg` widget]: crate::widget::Svg
 /// [Ghostscript Tiger]: https://commons.wikimedia.org/wiki/File:Ghostscript_Tiger.svg
 ///
@@ -162,11 +161,7 @@ where
         T::title(self)
     }
 
-    fn update(
-        &mut self,
-        message: T::Message,
-        _clipboard: &mut Clipboard,
-    ) -> Command<T::Message> {
+    fn update(&mut self, message: T::Message) -> Command<T::Message> {
         T::update(self, message);
 
         Command::none()

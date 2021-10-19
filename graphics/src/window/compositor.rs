@@ -1,6 +1,9 @@
 use crate::{Color, Error, Viewport};
+
 use iced_native::mouse;
+
 use raw_window_handle::HasRawWindowHandle;
+use thiserror::Error;
 
 /// A graphics compositor that can draw to windows.
 pub trait Compositor: Sized {
@@ -12,9 +15,6 @@ pub trait Compositor: Sized {
 
     /// The surface of the backend.
     type Surface;
-
-    /// The swap chain of the backend.
-    type SwapChain;
 
     /// Creates a new [`Compositor`].
     fn new<W: HasRawWindowHandle>(
@@ -34,12 +34,12 @@ pub trait Compositor: Sized {
     ///
     /// [`SwapChain`]: Self::SwapChain
     /// [`Surface`]: Self::Surface
-    fn create_swap_chain(
+    fn configure_surface(
         &mut self,
-        surface: &Self::Surface,
+        surface: &mut Self::Surface,
         width: u32,
         height: u32,
-    ) -> Self::SwapChain;
+    );
 
     /// Draws the output primitives to the next frame of the given [`SwapChain`].
     ///
@@ -47,10 +47,31 @@ pub trait Compositor: Sized {
     fn draw<T: AsRef<str>>(
         &mut self,
         renderer: &mut Self::Renderer,
-        swap_chain: &mut Self::SwapChain,
+        surface: &mut Self::Surface,
         viewport: &Viewport,
         background_color: Color,
         output: &<Self::Renderer as iced_native::Renderer>::Output,
         overlay: &[T],
-    ) -> mouse::Interaction;
+    ) -> Result<mouse::Interaction, SurfaceError>;
+}
+
+/// Result of an unsuccessful call to [`Compositor::draw`].
+#[derive(Clone, PartialEq, Eq, Debug, Error)]
+pub enum SurfaceError {
+    /// A timeout was encountered while trying to acquire the next frame.
+    #[error(
+        "A timeout was encountered while trying to acquire the next frame"
+    )]
+    Timeout,
+    /// The underlying surface has changed, and therefore the swap chain must be updated.
+    #[error(
+        "The underlying surface has changed, and therefore the swap chain must be updated."
+    )]
+    Outdated,
+    /// The swap chain has been lost and needs to be recreated.
+    #[error("The swap chain has been lost and needs to be recreated")]
+    Lost,
+    /// There is no more memory left to allocate a new frame.
+    #[error("There is no more memory left to allocate a new frame")]
+    OutOfMemory,
 }

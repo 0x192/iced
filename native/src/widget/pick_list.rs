@@ -1,5 +1,6 @@
 //! Display a dropdown list of selectable values.
 use crate::event::{self, Event};
+use crate::keyboard;
 use crate::layout;
 use crate::mouse;
 use crate::overlay;
@@ -20,11 +21,13 @@ where
     [T]: ToOwned<Owned = Vec<T>>,
 {
     menu: &'a mut menu::State,
+    keyboard_modifiers: &'a mut keyboard::Modifiers,
     is_open: &'a mut bool,
     hovered_option: &'a mut Option<usize>,
     last_selection: &'a mut Option<T>,
     on_selected: Box<dyn Fn(T) -> Message>,
     options: Cow<'a, [T]>,
+    placeholder: Option<String>,
     selected: Option<T>,
     width: Length,
     padding: Padding,
@@ -37,6 +40,7 @@ where
 #[derive(Debug, Clone)]
 pub struct State<T> {
     menu: menu::State,
+    keyboard_modifiers: keyboard::Modifiers,
     is_open: bool,
     hovered_option: Option<usize>,
     last_selection: Option<T>,
@@ -46,6 +50,7 @@ impl<T> Default for State<T> {
     fn default() -> Self {
         Self {
             menu: menu::State::default(),
+            keyboard_modifiers: keyboard::Modifiers::default(),
             is_open: bool::default(),
             hovered_option: Option::default(),
             last_selection: Option::default(),
@@ -70,6 +75,7 @@ where
     ) -> Self {
         let State {
             menu,
+            keyboard_modifiers,
             is_open,
             hovered_option,
             last_selection,
@@ -77,11 +83,13 @@ where
 
         Self {
             menu,
+            keyboard_modifiers,
             is_open,
             hovered_option,
             last_selection,
             on_selected: Box::new(on_selected),
             options: options.into(),
+            placeholder: None,
             selected,
             width: Length::Shrink,
             text_size: None,
@@ -89,6 +97,12 @@ where
             font: Default::default(),
             style: Default::default(),
         }
+    }
+
+    /// Sets the placeholder of the [`PickList`].
+    pub fn placeholder(mut self, placeholder: impl Into<String>) -> Self {
+        self.placeholder = Some(placeholder.into());
+        self
     }
 
     /// Sets the width of the [`PickList`].
@@ -154,24 +168,34 @@ where
             .pad(self.padding);
 
         let text_size = self.text_size.unwrap_or(renderer.default_size());
+        let font = self.font;
 
         let max_width = match self.width {
             Length::Shrink => {
+                let measure = |label: &str| -> u32 {
+                    let (width, _) = renderer.measure(
+                        label,
+                        text_size,
+                        font,
+                        Size::new(f32::INFINITY, f32::INFINITY),
+                    );
+
+                    width.round() as u32
+                };
+
                 let labels = self.options.iter().map(ToString::to_string);
 
-                labels
-                    .map(|label| {
-                        let (width, _) = renderer.measure(
-                            &label,
-                            text_size,
-                            self.font,
-                            Size::new(f32::INFINITY, f32::INFINITY),
-                        );
+                let labels_width =
+                    labels.map(|label| measure(&label)).max().unwrap_or(100);
 
-                        width.round() as u32
-                    })
-                    .max()
-                    .unwrap_or(100)
+                let placeholder_width = self
+                    .placeholder
+                    .as_ref()
+                    .map(String::as_str)
+                    .map(measure)
+                    .unwrap_or(100);
+
+                labels_width.max(placeholder_width)
             }
             _ => 0,
         };
@@ -195,6 +219,8 @@ where
 
         match self.width {
             Length::Shrink => {
+                self.placeholder.hash(state);
+
                 self.options
                     .iter()
                     .map(ToString::to_string)
@@ -248,6 +274,48 @@ where
                     event_status
                 }
             }
+            Event::Mouse(mouse::Event::WheelScrolled {
+                delta: mouse::ScrollDelta::Lines { y, .. },
+            }) if self.keyboard_modifiers.command()
+                && layout.bounds().contains(cursor_position)
+                && !*self.is_open =>
+            {
+                fn find_next<'a, T: PartialEq>(
+                    selected: &'a T,
+                    mut options: impl Iterator<Item = &'a T>,
+                ) -> Option<&'a T> {
+                    let _ = options.find(|&option| option == selected);
+
+                    options.next()
+                }
+
+                let next_option = if y < 0.0 {
+                    if let Some(selected) = self.selected.as_ref() {
+                        find_next(selected, self.options.iter())
+                    } else {
+                        self.options.first()
+                    }
+                } else if y > 0.0 {
+                    if let Some(selected) = self.selected.as_ref() {
+                        find_next(selected, self.options.iter().rev())
+                    } else {
+                        self.options.last()
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(next_option) = next_option {
+                    messages.push((self.on_selected)(next_option.clone()));
+                }
+
+                event::Status::Captured
+            }
+            Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+                *self.keyboard_modifiers = modifiers;
+
+                event::Status::Ignored
+            }
             _ => event::Status::Ignored,
         }
     }
@@ -265,6 +333,7 @@ where
             layout.bounds(),
             cursor_position,
             self.selected.as_ref().map(ToString::to_string),
+            self.placeholder.as_ref().map(String::as_str),
             self.padding,
             self.text_size.unwrap_or(renderer.default_size()),
             self.font,
@@ -325,6 +394,7 @@ pub trait Renderer: text::Renderer + menu::Renderer {
         bounds: Rectangle,
         cursor_position: Point,
         selected: Option<String>,
+        placeholder: Option<&str>,
         padding: Padding,
         text_size: u16,
         font: Self::Font,

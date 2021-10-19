@@ -149,6 +149,7 @@ where
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         messages: &mut Vec<Message>,
+        is_picked: bool,
     ) -> event::Status {
         let mut event_status = event::Status::Ignored;
 
@@ -169,14 +170,18 @@ where
             layout
         };
 
-        let body_status = self.body.on_event(
-            event,
-            body_layout,
-            cursor_position,
-            renderer,
-            clipboard,
-            messages,
-        );
+        let body_status = if is_picked {
+            event::Status::Ignored
+        } else {
+            self.body.on_event(
+                event,
+                body_layout,
+                cursor_position,
+                renderer,
+                clipboard,
+                messages,
+            )
+        };
 
         event_status.merge(body_status)
     }
@@ -193,18 +198,17 @@ where
         &mut self,
         layout: Layout<'_>,
     ) -> Option<overlay::Element<'_, Message, Renderer>> {
-        let body_layout = if self.title_bar.is_some() {
+        if let Some(title_bar) = self.title_bar.as_mut() {
             let mut children = layout.children();
+            let title_bar_layout = children.next()?;
 
-            // Overlays only allowed in the pane body, for now at least.
-            let _title_bar_layout = children.next();
-
-            children.next()?
+            match title_bar.overlay(title_bar_layout) {
+                Some(overlay) => Some(overlay),
+                None => self.body.overlay(children.next()?),
+            }
         } else {
-            layout
-        };
-
-        self.body.overlay(body_layout)
+            self.body.overlay(layout)
+        }
     }
 }
 

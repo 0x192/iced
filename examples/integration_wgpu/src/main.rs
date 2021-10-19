@@ -31,41 +31,45 @@ pub fn main() {
     let mut clipboard = Clipboard::connect(&window);
 
     // Initialize wgpu
-    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
     let surface = unsafe { instance.create_surface(&window) };
 
-    let (mut device, queue) = futures::executor::block_on(async {
+    let (format, (mut device, queue)) = futures::executor::block_on(async {
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
             })
             .await
             .expect("Request adapter");
 
-        adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
-                },
-                None,
-            )
-            .await
-            .expect("Request device")
+        (
+            surface
+                .get_preferred_format(&adapter)
+                .expect("Get preferred format"),
+            adapter
+                .request_device(
+                    &wgpu::DeviceDescriptor {
+                        label: None,
+                        features: wgpu::Features::empty(),
+                        limits: wgpu::Limits::default(),
+                    },
+                    None,
+                )
+                .await
+                .expect("Request device"),
+        )
     });
 
-    let format = wgpu::TextureFormat::Bgra8UnormSrgb;
-
-    let mut swap_chain = {
+    {
         let size = window.inner_size();
 
-        device.create_swap_chain(
-            &surface,
-            &wgpu::SwapChainDescriptor {
-                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-                format: format,
+        surface.configure(
+            &device,
+            &wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                format,
                 width: size.width,
                 height: size.height,
                 present_mode: wgpu::PresentMode::Mailbox,
@@ -85,7 +89,7 @@ pub fn main() {
     // Initialize iced
     let mut debug = Debug::new();
     let mut renderer =
-        Renderer::new(Backend::new(&mut device, Settings::default()));
+        Renderer::new(Backend::new(&mut device, Settings::default(), format));
 
     let mut state = program::State::new(
         controls,
@@ -155,10 +159,10 @@ pub fn main() {
                 if resized {
                     let size = window.inner_size();
 
-                    swap_chain = device.create_swap_chain(
-                        &surface,
-                        &wgpu::SwapChainDescriptor {
-                            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+                    surface.configure(
+                        &device,
+                        &wgpu::SurfaceConfiguration {
+                            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
                             format: format,
                             width: size.width,
                             height: size.height,
@@ -169,55 +173,69 @@ pub fn main() {
                     resized = false;
                 }
 
-                let frame = swap_chain.get_current_frame().expect("Next frame");
+                match surface.get_current_texture() {
+                    Ok(frame) => {
+                        let mut encoder = device.create_command_encoder(
+                            &wgpu::CommandEncoderDescriptor { label: None },
+                        );
 
-                let mut encoder = device.create_command_encoder(
-                    &wgpu::CommandEncoderDescriptor { label: None },
-                );
+                        let program = state.program();
 
-                let program = state.program();
+                        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-                {
-                    // We clear the frame
-                    let mut render_pass = scene.clear(
-                        &frame.output.view,
-                        &mut encoder,
-                        program.background_color(),
-                    );
+                        {
+                            // We clear the frame
+                            let mut render_pass = scene.clear(
+                                &view,
+                                &mut encoder,
+                                program.background_color(),
+                            );
 
-                    // Draw the scene
-                    scene.draw(&mut render_pass);
+                            // Draw the scene
+                            scene.draw(&mut render_pass);
+                        }
+
+                        // And then iced on top
+                        let mouse_interaction = renderer.backend_mut().draw(
+                            &mut device,
+                            &mut staging_belt,
+                            &mut encoder,
+                            &view,
+                            &viewport,
+                            state.primitive(),
+                            &debug.overlay(),
+                        );
+
+                        // Then we submit the work
+                        staging_belt.finish();
+                        queue.submit(Some(encoder.finish()));
+                        frame.present();
+
+                        // Update the mouse cursor
+                        window.set_cursor_icon(
+                            iced_winit::conversion::mouse_interaction(
+                                mouse_interaction,
+                            ),
+                        );
+
+                        // And recall staging buffers
+                        local_pool
+                            .spawner()
+                            .spawn(staging_belt.recall())
+                            .expect("Recall staging buffers");
+
+                        local_pool.run_until_stalled();
+                    }
+                    Err(error) => match error {
+                        wgpu::SurfaceError::OutOfMemory => {
+                            panic!("Swapchain error: {}. Rendering cannot continue.", error)
+                        }
+                        _ => {
+                            // Try rendering again next frame.
+                            window.request_redraw();
+                        }
+                    },
                 }
-
-                // And then iced on top
-                let mouse_interaction = renderer.backend_mut().draw(
-                    &mut device,
-                    &mut staging_belt,
-                    &mut encoder,
-                    &frame.output.view,
-                    &viewport,
-                    state.primitive(),
-                    &debug.overlay(),
-                );
-
-                // Then we submit the work
-                staging_belt.finish();
-                queue.submit(Some(encoder.finish()));
-
-                // Update the mouse cursor
-                window.set_cursor_icon(
-                    iced_winit::conversion::mouse_interaction(
-                        mouse_interaction,
-                    ),
-                );
-
-                // And recall staging buffers
-                local_pool
-                    .spawner()
-                    .spawn(staging_belt.recall())
-                    .expect("Recall staging buffers");
-
-                local_pool.run_until_stalled();
             }
             _ => {}
         }

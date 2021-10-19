@@ -11,6 +11,11 @@ jobs:
     - name: Install cargo-deb
       run: cargo install cargo-deb
     - uses: actions/checkout@master
+    - name: Install dependencies
+      run: |
+        export DEBIAN_FRONTED=noninteractive
+        sudo apt-get -qq update
+        sudo apt-get install -y libxkbcommon-dev
     - name: Enable Link Time Optimizations
       run: |
         echo "[profile.release]" >> Cargo.toml
@@ -46,6 +51,9 @@ jobs:
         mkdir .cargo
         echo '[target.x86_64-pc-windows-msvc]' >> .cargo/config
         echo 'rustflags = ["-Ctarget-feature=+crt-static"]' >> .cargo/config
+    - name: Run the application without starting the shell
+      run: |
+        sed -i '1 i\#![windows_subsystem = \"windows\"]' examples/todos/src/main.rs
     - name: Build todos binary
       run: cargo build --verbose --release --package todos
     - name: Archive todos binary
@@ -67,6 +75,8 @@ jobs:
       env:
         MACOSX_DEPLOYMENT_TARGET: 10.14
       run: cargo build --verbose --release --package todos
+    - name: Open binary via double-click
+      run: chmod +x target/release/todos
     - name: Archive todos binary
       uses: actions/upload-artifact@v1
       with:

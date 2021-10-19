@@ -1,8 +1,19 @@
+use crate::alignment;
+use crate::button;
+use crate::checkbox;
+use crate::column;
+use crate::container;
+use crate::pane_grid;
+use crate::progress_bar;
+use crate::radio;
+use crate::row;
+use crate::scrollable;
+use crate::slider;
+use crate::text;
+use crate::text_input;
+use crate::toggler;
 use crate::{
-    button, checkbox, column, container, pane_grid, progress_bar, radio, row,
-    scrollable, slider, text, text_input, toggler, Color, Element, Font,
-    HorizontalAlignment, Layout, Padding, Point, Rectangle, Renderer, Size,
-    VerticalAlignment,
+    Color, Element, Font, Layout, Padding, Point, Rectangle, Renderer, Size,
 };
 
 /// A renderer that does nothing.
@@ -67,6 +78,18 @@ impl text::Renderer for Null {
         (0.0, 20.0)
     }
 
+    fn hit_test(
+        &self,
+        _contents: &str,
+        _size: f32,
+        _font: Self::Font,
+        _bounds: Size,
+        _point: Point,
+        _nearest_only: bool,
+    ) -> Option<text::Hit> {
+        None
+    }
+
     fn draw(
         &mut self,
         _defaults: &Self::Defaults,
@@ -75,8 +98,8 @@ impl text::Renderer for Null {
         _size: u16,
         _font: Font,
         _color: Option<Color>,
-        _horizontal_alignment: HorizontalAlignment,
-        _vertical_alignment: VerticalAlignment,
+        _horizontal_alignment: alignment::Horizontal,
+        _vertical_alignment: alignment::Vertical,
     ) {
     }
 }

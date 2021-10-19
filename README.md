@@ -1,20 +1,26 @@
-# Iced
-[![Test Status](https://github.com/hecrj/iced/workflows/Test/badge.svg?event=push)](https://github.com/hecrj/iced/actions)
+<div align="center">
+
+<img src="docs/logo.svg" width="140px" />
+
+# iced
+
 [![Documentation](https://docs.rs/iced/badge.svg)][documentation]
 [![Crates.io](https://img.shields.io/crates/v/iced.svg)](https://crates.io/crates/iced)
 [![License](https://img.shields.io/crates/l/iced.svg)](https://github.com/hecrj/iced/blob/master/LICENSE)
-[![project chat](https://img.shields.io/badge/chat-on_zulip-brightgreen.svg)](https://iced.zulipchat.com)
+[![Downloads](https://img.shields.io/crates/d/iced.svg)](https://crates.io/crates/iced)
+[![Test Status](https://github.com/hecrj/iced/workflows/Test/badge.svg?event=push)](https://github.com/hecrj/iced/actions)
+[![Discord Server](https://img.shields.io/discord/628993209984614400?label=&labelColor=6A7EC2&logo=discord&logoColor=ffffff&color=7389D8)](https://discord.gg/3xZJ65GAhd)
 
 A cross-platform GUI library for Rust focused on simplicity and type-safety.
 Inspired by [Elm].
 
-<div align="center">
-  <a href="https://gfycat.com/littlesanehalicore">
-    <img src="https://thumbs.gfycat.com/LittleSaneHalicore-small.gif" height="350px">
-  </a>
-  <a href="https://gfycat.com/politeadorableiberianmole">
-    <img src="https://thumbs.gfycat.com/PoliteAdorableIberianmole-small.gif">
-  </a>
+<a href="https://gfycat.com/littlesanehalicore">
+  <img src="https://thumbs.gfycat.com/LittleSaneHalicore-small.gif" height="350px">
+</a>
+<a href="https://gfycat.com/politeadorableiberianmole">
+  <img src="https://thumbs.gfycat.com/PoliteAdorableIberianmole-small.gif">
+</a>
+
 </div>
 
 ## Features
@@ -32,7 +38,7 @@ Inspired by [Elm].
     * A [windowing shell]
     * A [web runtime] leveraging the DOM
 
-__Iced is currently experimental software.__ [Take a look at the roadmap],
+__iced is currently experimental software.__ [Take a look at the roadmap],
 [check out the issues], and [feel free to contribute!]
 
 [Cross-platform support]: https://github.com/hecrj/iced/blob/master/docs/images/todos_desktop.jpg?raw=true
@@ -58,13 +64,13 @@ Add `iced` as a dependency in your `Cargo.toml`:
 iced = "0.3"
 ```
 
-__Iced moves fast and the `master` branch can contain breaking changes!__ If
+__iced moves fast and the `master` branch can contain breaking changes!__ If
 you want to learn about a specific release, check out [the release list].
 
 [the release list]: https://github.com/hecrj/iced/releases
 
 ## Overview
-Inspired by [The Elm Architecture], Iced expects you to split user interfaces
+Inspired by [The Elm Architecture], iced expects you to split user interfaces
 into four different concepts:
 
   * __State__ — the state of your application
@@ -154,7 +160,7 @@ impl Counter {
 }
 ```
 
-And that's everything! We just wrote a whole user interface. Iced is now able
+And that's everything! We just wrote a whole user interface. iced is now able
 to:
 
   1. Take the result of our __view logic__ and layout its widgets.
@@ -165,7 +171,7 @@ to:
 Browse the [documentation] and the [examples] to learn more!
 
 ## Implementation details
-Iced was originally born as an attempt at bringing the simplicity of [Elm] and
+iced was originally born as an attempt at bringing the simplicity of [Elm] and
 [The Elm Architecture] into [Coffee], a 2D game engine I am working on.
 
 The core of the library was implemented during May 2019 in [this pull request].
@@ -178,7 +184,7 @@ end-user-oriented GUI library, while keeping [the ecosystem] modular:
 
 <p align="center">
   <a href="https://github.com/hecrj/iced/blob/master/ECOSYSTEM.md">
-    <img alt="Iced Ecosystem" src="docs/graphs/ecosystem.png" width="80%">
+    <img alt="iced ecosystem" src="docs/graphs/ecosystem.png" width="80%">
   </a>
 </p>
 
@@ -199,7 +205,7 @@ awesome folks) over the `#games-and-graphics` and `#gui-and-ui` channels in
 the [Rust Community Discord]. I go by `lone_scientist#9554` there.
 
 ## Sponsors
-The development of Iced is sponsored by the [Cryptowatch] team at [Kraken.com]
+The development of iced is sponsored by the [Cryptowatch] team at [Kraken.com]
 
 [documentation]: https://docs.rs/iced/
 [examples]: https://github.com/hecrj/iced/tree/master/examples

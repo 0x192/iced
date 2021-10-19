@@ -1,8 +1,7 @@
 use iced::{
-    button, executor, keyboard, pane_grid, scrollable, Align, Application,
-    Button, Clipboard, Color, Column, Command, Container, Element,
-    HorizontalAlignment, Length, PaneGrid, Row, Scrollable, Settings,
-    Subscription, Text,
+    alignment, button, executor, keyboard, pane_grid, scrollable, Alignment,
+    Application, Button, Color, Column, Command, Container, Element, Length,
+    PaneGrid, Row, Scrollable, Settings, Subscription, Text,
 };
 use iced_native::{event, subscription, Event};
 
@@ -51,11 +50,7 @@ impl Application for Example {
         String::from("Pane grid - Iced")
     }
 
-    fn update(
-        &mut self,
-        message: Message,
-        _clipboard: &mut Clipboard,
-    ) -> Command<Message> {
+    fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::Split(axis, pane) => {
                 let result = self.panes.split(
@@ -146,7 +141,7 @@ impl Application for Example {
                 Event::Keyboard(keyboard::Event::KeyPressed {
                     modifiers,
                     key_code,
-                }) if modifiers.is_command_pressed() => handle_hotkey(key_code),
+                }) if modifiers.command() => handle_hotkey(key_code),
                 _ => None,
             }
         })
@@ -297,7 +292,7 @@ impl Content {
                 state,
                 Text::new(label)
                     .width(Length::Fill)
-                    .horizontal_alignment(HorizontalAlignment::Center)
+                    .horizontal_alignment(alignment::Horizontal::Center)
                     .size(16),
             )
             .width(Length::Fill)
@@ -334,7 +329,7 @@ impl Content {
         let content = Scrollable::new(scroll)
             .width(Length::Fill)
             .spacing(10)
-            .align_items(Align::Center)
+            .align_items(Alignment::Center)
             .push(controls);
 
         Container::new(content)

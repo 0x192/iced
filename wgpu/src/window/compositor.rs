@@ -13,6 +13,7 @@ pub struct Compositor {
     queue: wgpu::Queue,
     staging_belt: wgpu::util::StagingBelt,
     local_pool: futures::executor::LocalPool,
+    format: wgpu::TextureFormat,
 }
 
 impl Compositor {
@@ -39,8 +40,13 @@ impl Compositor {
                     wgpu::PowerPreference::HighPerformance
                 },
                 compatible_surface: compatible_surface.as_ref(),
+                force_fallback_adapter: false,
             })
             .await?;
+
+        let format = compatible_surface
+            .as_ref()
+            .and_then(|surface| surface.get_preferred_format(&adapter))?;
 
         let (device, queue) = adapter
             .request_device(
@@ -69,12 +75,13 @@ impl Compositor {
             queue,
             staging_belt,
             local_pool,
+            format,
         })
     }
 
     /// Creates a new rendering [`Backend`] for this [`Compositor`].
     pub fn create_backend(&self) -> Backend {
-        Backend::new(&self.device, self.settings)
+        Backend::new(&self.device, self.settings, self.format)
     }
 }
 
@@ -82,7 +89,6 @@ impl iced_graphics::window::Compositor for Compositor {
     type Settings = Settings;
     type Renderer = Renderer;
     type Surface = wgpu::Surface;
-    type SwapChain = wgpu::SwapChain;
 
     fn new<W: HasRawWindowHandle>(
         settings: Self::Settings,
@@ -109,85 +115,110 @@ impl iced_graphics::window::Compositor for Compositor {
         }
     }
 
-    fn create_swap_chain(
+    fn configure_surface(
         &mut self,
-        surface: &Self::Surface,
+        surface: &mut Self::Surface,
         width: u32,
         height: u32,
-    ) -> Self::SwapChain {
-        self.device.create_swap_chain(
-            surface,
-            &wgpu::SwapChainDescriptor {
-                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-                format: self.settings.format,
+    ) {
+        surface.configure(
+            &self.device,
+            &wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                format: self.format,
                 present_mode: self.settings.present_mode,
                 width,
                 height,
             },
-        )
+        );
     }
 
     fn draw<T: AsRef<str>>(
         &mut self,
         renderer: &mut Self::Renderer,
-        swap_chain: &mut Self::SwapChain,
+        surface: &mut Self::Surface,
         viewport: &Viewport,
         background_color: Color,
         output: &<Self::Renderer as iced_native::Renderer>::Output,
         overlay: &[T],
-    ) -> mouse::Interaction {
-        let frame = swap_chain.get_current_frame().expect("Next frame");
+    ) -> Result<mouse::Interaction, iced_graphics::window::SurfaceError> {
+        match surface.get_current_texture() {
+            Ok(frame) => {
+                let mut encoder = self.device.create_command_encoder(
+                    &wgpu::CommandEncoderDescriptor {
+                        label: Some("iced_wgpu encoder"),
+                    },
+                );
 
-        let mut encoder = self.device.create_command_encoder(
-            &wgpu::CommandEncoderDescriptor {
-                label: Some("iced_wgpu encoder"),
+                let view = &frame
+                    .texture
+                    .create_view(&wgpu::TextureViewDescriptor::default());
+
+                let _ =
+                    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        label: Some(
+                            "iced_wgpu::window::Compositor render pass",
+                        ),
+                        color_attachments: &[wgpu::RenderPassColorAttachment {
+                            view,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear({
+                                    let [r, g, b, a] =
+                                        background_color.into_linear();
+
+                                    wgpu::Color {
+                                        r: f64::from(r),
+                                        g: f64::from(g),
+                                        b: f64::from(b),
+                                        a: f64::from(a),
+                                    }
+                                }),
+                                store: true,
+                            },
+                        }],
+                        depth_stencil_attachment: None,
+                    });
+
+                let mouse_interaction = renderer.backend_mut().draw(
+                    &mut self.device,
+                    &mut self.staging_belt,
+                    &mut encoder,
+                    view,
+                    viewport,
+                    output,
+                    overlay,
+                );
+
+                // Submit work
+                self.staging_belt.finish();
+                self.queue.submit(Some(encoder.finish()));
+                frame.present();
+
+                // Recall staging buffers
+                self.local_pool
+                    .spawner()
+                    .spawn(self.staging_belt.recall())
+                    .expect("Recall staging belt");
+
+                self.local_pool.run_until_stalled();
+
+                Ok(mouse_interaction)
+            }
+            Err(error) => match error {
+                wgpu::SurfaceError::Timeout => {
+                    Err(iced_graphics::window::SurfaceError::Timeout)
+                }
+                wgpu::SurfaceError::Outdated => {
+                    Err(iced_graphics::window::SurfaceError::Outdated)
+                }
+                wgpu::SurfaceError::Lost => {
+                    Err(iced_graphics::window::SurfaceError::Lost)
+                }
+                wgpu::SurfaceError::OutOfMemory => {
+                    Err(iced_graphics::window::SurfaceError::OutOfMemory)
+                }
             },
-        );
-
-        let _ = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("iced_wgpu::window::Compositor render pass"),
-            color_attachments: &[wgpu::RenderPassColorAttachment {
-                view: &frame.output.view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear({
-                        let [r, g, b, a] = background_color.into_linear();
-
-                        wgpu::Color {
-                            r: f64::from(r),
-                            g: f64::from(g),
-                            b: f64::from(b),
-                            a: f64::from(a),
-                        }
-                    }),
-                    store: true,
-                },
-            }],
-            depth_stencil_attachment: None,
-        });
-
-        let mouse_interaction = renderer.backend_mut().draw(
-            &mut self.device,
-            &mut self.staging_belt,
-            &mut encoder,
-            &frame.output.view,
-            viewport,
-            output,
-            overlay,
-        );
-
-        // Submit work
-        self.staging_belt.finish();
-        self.queue.submit(Some(encoder.finish()));
-
-        // Recall staging buffers
-        self.local_pool
-            .spawner()
-            .spawn(self.staging_belt.recall())
-            .expect("Recall staging belt");
-
-        self.local_pool.run_until_stalled();
-
-        mouse_interaction
+        }
     }
 }

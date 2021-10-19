@@ -1,10 +1,9 @@
 //! Display a dropdown list of selectable values.
+use crate::alignment;
 use crate::backend::{self, Backend};
 use crate::{Primitive, Renderer};
-use iced_native::{
-    mouse, Font, HorizontalAlignment, Padding, Point, Rectangle,
-    VerticalAlignment,
-};
+
+use iced_native::{mouse, Font, Padding, Point, Rectangle};
 use iced_style::menu;
 
 pub use iced_native::pick_list::State;
@@ -31,12 +30,14 @@ where
         bounds: Rectangle,
         cursor_position: Point,
         selected: Option<String>,
+        placeholder: Option<&str>,
         padding: Padding,
         text_size: u16,
         font: Font,
         style: &Box<dyn StyleSheet>,
     ) -> Self::Output {
         let is_mouse_over = bounds.contains(cursor_position);
+        let is_selected = selected.is_some();
 
         let style = if is_mouse_over {
             style.hovered()
@@ -62,25 +63,29 @@ where
                 ..bounds
             },
             color: style.text_color,
-            horizontal_alignment: HorizontalAlignment::Right,
-            vertical_alignment: VerticalAlignment::Center,
+            horizontal_alignment: alignment::Horizontal::Right,
+            vertical_alignment: alignment::Vertical::Center,
         };
 
         (
             Primitive::Group {
-                primitives: if let Some(label) = selected {
+                primitives: if let Some(label) =
+                    selected.or_else(|| placeholder.map(str::to_string))
+                {
                     let label = Primitive::Text {
                         content: label,
                         size: f32::from(text_size),
                         font,
-                        color: style.text_color,
+                        color: is_selected
+                            .then(|| style.text_color)
+                            .unwrap_or(style.placeholder_color),
                         bounds: Rectangle {
                             x: bounds.x + f32::from(padding.left),
                             y: bounds.center_y(),
                             ..bounds
                         },
-                        horizontal_alignment: HorizontalAlignment::Left,
-                        vertical_alignment: VerticalAlignment::Center,
+                        horizontal_alignment: alignment::Horizontal::Left,
+                        vertical_alignment: alignment::Vertical::Center,
                     };
 
                     vec![background, label, arrow_down]

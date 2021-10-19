@@ -9,9 +9,10 @@ use iced::executor;
 use iced::pick_list::{self, PickList};
 use iced::slider::{self, Slider};
 use iced::time;
+use iced::window;
 use iced::{
-    Align, Application, Checkbox, Clipboard, Column, Command, Container,
-    Element, Length, Row, Settings, Subscription, Text,
+    Alignment, Application, Checkbox, Column, Command, Container, Element,
+    Length, Row, Settings, Subscription, Text,
 };
 use preset::Preset;
 use std::time::{Duration, Instant};
@@ -19,6 +20,10 @@ use std::time::{Duration, Instant};
 pub fn main() -> iced::Result {
     GameOfLife::run(Settings {
         antialiasing: true,
+        window: window::Settings {
+            position: window::Position::Centered,
+            ..window::Settings::default()
+        },
         ..Settings::default()
     })
 }
@@ -65,11 +70,7 @@ impl Application for GameOfLife {
         String::from("Game of Life - Iced")
     }
 
-    fn update(
-        &mut self,
-        message: Message,
-        _clipboard: &mut Clipboard,
-    ) -> Command<Message> {
+    fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::Grid(message, version) => {
                 if version == self.version {
@@ -157,10 +158,10 @@ impl Application for GameOfLife {
 mod grid {
     use crate::Preset;
     use iced::{
+        alignment,
         canvas::event::{self, Event},
         canvas::{self, Cache, Canvas, Cursor, Frame, Geometry, Path, Text},
-        mouse, Color, Element, HorizontalAlignment, Length, Point, Rectangle,
-        Size, Vector, VerticalAlignment,
+        mouse, Color, Element, Length, Point, Rectangle, Size, Vector,
     };
     use rustc_hash::{FxHashMap, FxHashSet};
     use std::future::Future;
@@ -497,8 +498,8 @@ mod grid {
                     color: Color::WHITE,
                     size: 14.0,
                     position: Point::new(frame.width(), frame.height()),
-                    horizontal_alignment: HorizontalAlignment::Right,
-                    vertical_alignment: VerticalAlignment::Bottom,
+                    horizontal_alignment: alignment::Horizontal::Right,
+                    vertical_alignment: alignment::Vertical::Bottom,
                     ..Text::default()
                 };
 
@@ -843,7 +844,7 @@ impl Controls {
 
         let speed_controls = Row::new()
             .width(Length::Fill)
-            .align_items(Align::Center)
+            .align_items(Alignment::Center)
             .spacing(10)
             .push(
                 Slider::new(
@@ -859,7 +860,7 @@ impl Controls {
         Row::new()
             .padding(10)
             .spacing(20)
-            .align_items(Align::Center)
+            .align_items(Alignment::Center)
             .push(playback_controls)
             .push(speed_controls)
             .push(

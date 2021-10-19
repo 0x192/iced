@@ -4,12 +4,18 @@ use crate::window;
 /// The settings of an application.
 #[derive(Debug, Clone)]
 pub struct Settings<Flags> {
+    /// The identifier of the application.
+    ///
+    /// If provided, this identifier may be used to identify the application or
+    /// communicate with it through the windowing system.
+    pub id: Option<String>,
+
     /// The window settings.
     ///
     /// They will be ignored on the Web.
     pub window: window::Settings,
 
-    /// The data needed to initialize an [`Application`].
+    /// The data needed to initialize the [`Application`].
     ///
     /// [`Application`]: crate::Application
     pub flags: Flags,
@@ -25,9 +31,11 @@ pub struct Settings<Flags> {
     /// The default value is 20.
     pub default_text_size: u16,
 
-    /// Whether the [`Application`] should exit when the user requests the
-    /// window to close (e.g. the user presses the close button).
-    pub exit_on_close_request: bool,
+    /// If enabled, spread text workload in multiple threads when multiple cores
+    /// are available.
+    ///
+    /// By default, it is disabled.
+    pub text_multithreading: bool,
 
     /// If set to true, the renderer will try to perform antialiasing for some
     /// primitives.
@@ -39,6 +47,12 @@ pub struct Settings<Flags> {
     ///
     /// [`Canvas`]: crate::widget::Canvas
     pub antialiasing: bool,
+
+    /// Whether the [`Application`] should exit when the user requests the
+    /// window to close (e.g. the user presses the close button).
+    ///
+    /// By default, it is enabled.
+    pub exit_on_close_request: bool,
 }
 
 impl<Flags> Settings<Flags> {
@@ -50,11 +64,13 @@ impl<Flags> Settings<Flags> {
 
         Self {
             flags,
+            id: default_settings.id,
             window: default_settings.window,
             default_font: default_settings.default_font,
             default_text_size: default_settings.default_text_size,
-            exit_on_close_request: default_settings.exit_on_close_request,
+            text_multithreading: default_settings.text_multithreading,
             antialiasing: default_settings.antialiasing,
+            exit_on_close_request: default_settings.exit_on_close_request,
         }
     }
 }
@@ -65,12 +81,14 @@ where
 {
     fn default() -> Self {
         Self {
-            flags: Default::default(),
+            id: None,
             window: Default::default(),
+            flags: Default::default(),
             default_font: Default::default(),
             default_text_size: 20,
-            exit_on_close_request: true,
+            text_multithreading: false,
             antialiasing: false,
+            exit_on_close_request: true,
         }
     }
 }
@@ -79,6 +97,7 @@ where
 impl<Flags> From<Settings<Flags>> for iced_winit::Settings<Flags> {
     fn from(settings: Settings<Flags>) -> iced_winit::Settings<Flags> {
         iced_winit::Settings {
+            id: settings.id,
             window: settings.window.into(),
             flags: settings.flags,
             exit_on_close_request: settings.exit_on_close_request,

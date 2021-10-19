@@ -14,10 +14,14 @@ categories = ["gui"]
 debug = ["iced_native/debug"]
 
 [dependencies]
-winit = "0.24"
 window_clipboard = "0.2"
 log = "0.4"
 thiserror = "1.0"
+
+[dependencies.winit]
+version = "0.25"
+git = "https://github.com/iced-rs/winit"
+rev = "1e6623c4d06d110e5408dcbdf1edebd07e6a200e"
 
 [dependencies.iced_native]
 version = "0.4"
