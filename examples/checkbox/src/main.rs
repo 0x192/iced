@@ -1,7 +1,9 @@
+mod theme;
+
 use iced::executor;
 use iced::font::{self, Font};
 use iced::widget::{checkbox, column, container, text};
-use iced::{Application, Command, Element, Length, Settings, Theme};
+use iced::{Application, Command, Element, Length, Settings};
 
 const ICON_FONT: Font = Font::with_name("icons");
 
@@ -26,7 +28,7 @@ impl Application for Example {
     type Message = Message;
     type Flags = ();
     type Executor = executor::Default;
-    type Theme = Theme;
+    type Theme = theme::Theme;
 
     fn new(_flags: Self::Flags) -> (Self, Command<Message>) {
         (
@@ -50,9 +52,9 @@ impl Application for Example {
         Command::none()
     }
 
-    fn view(&self) -> Element<Message> {
+    fn view(&self) -> Element<Message,theme::Theme> {
         let default_checkbox =
-            checkbox("Default", self.default_checkbox, Message::DefaultChecked);
+            checkbox("Default", self.default_checkbox, Message::DefaultChecked).style(theme::CheckBox::PackageDisabled);
         let custom_checkbox =
             checkbox("Custom", self.custom_checkbox, Message::CustomChecked)
                 .icon(checkbox::Icon {
