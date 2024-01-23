@@ -1,7 +1,9 @@
+mod theme;
+
+use theme::Theme;
 use iced::executor;
 use iced::highlighter::{self, Highlighter};
 use iced::keyboard;
-use iced::theme::{self, Theme};
 use iced::widget::{
     button, column, container, horizontal_space, pick_list, row, text,
     text_editor, tooltip,
@@ -142,7 +144,7 @@ impl Application for Editor {
         })
     }
 
-    fn view(&self) -> Element<Message> {
+    fn view(&self) -> Element<Message, Theme> {
         let controls = row![
             action(new_icon(), "New file", Some(Message::NewFile)),
             action(
@@ -204,7 +206,7 @@ impl Application for Editor {
                             .unwrap_or(String::from("rs")),
                     },
                     |highlight, _theme| highlight.to_format()
-                ),
+            ).style(theme::TextEditor::Test),
             status,
         ]
         .spacing(10)
@@ -212,12 +214,8 @@ impl Application for Editor {
         .into()
     }
 
-    fn theme(&self) -> Theme {
-        if self.theme.is_dark() {
-            Theme::Dark
-        } else {
-            Theme::Light
-        }
+    fn theme(&self) -> theme::Theme {
+        theme::Theme::Dark
     }
 }
 
@@ -274,10 +272,10 @@ async fn save_file(
 }
 
 fn action<'a, Message: Clone + 'a>(
-    content: impl Into<Element<'a, Message>>,
+    content: impl Into<Element<'a, Message, Theme>>,
     label: &'a str,
     on_press: Option<Message>,
-) -> Element<'a, Message> {
+) -> Element<'a, Message, Theme> {
     let action = button(container(content).width(30).center_x());
 
     if let Some(on_press) = on_press {
@@ -286,26 +284,25 @@ fn action<'a, Message: Clone + 'a>(
             label,
             tooltip::Position::FollowCursor,
         )
-        .style(theme::Container::Box)
         .into()
     } else {
-        action.style(theme::Button::Secondary).into()
+        action.into()
     }
 }
 
-fn new_icon<'a, Message>() -> Element<'a, Message> {
+fn new_icon<'a, Message>() -> Element<'a, Message, Theme> {
     icon('\u{0e800}')
 }
 
-fn save_icon<'a, Message>() -> Element<'a, Message> {
+fn save_icon<'a, Message>() -> Element<'a, Message, Theme> {
     icon('\u{0e801}')
 }
 
-fn open_icon<'a, Message>() -> Element<'a, Message> {
+fn open_icon<'a, Message>() -> Element<'a, Message, Theme> {
     icon('\u{0f115}')
 }
 
-fn icon<'a, Message>(codepoint: char) -> Element<'a, Message> {
+fn icon<'a, Message>(codepoint: char) -> Element<'a, Message, Theme> {
     const ICON_FONT: Font = Font::with_name("editor-icons");
 
     text(codepoint).font(ICON_FONT).into()
